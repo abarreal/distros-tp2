@@ -1,0 +1,5 @@
+*.csv
+*.drawio
+docs/
+code/bin
+TODO

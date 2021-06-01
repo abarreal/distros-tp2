@@ -1,0 +1,56 @@
+version: '3'
+services:
+
+  test:
+    container_name: test
+    image: tp2node:latest
+    entrypoint: /node test
+
+#  server:
+#    container_name: server
+#    image: tp1node:latest
+#    entrypoint: /node blockchain
+#    environment:
+#      - ReaderCount=2
+#    networks:
+#      - testing_net
+#    volumes:
+#      - ./config/blockchain:/etc/distros/config:ro
+
+#  service:
+#    container_name: service
+#    image: tp1node:latest
+#    entrypoint: /node service
+#    environment:
+#      - BlockchainServerName=server
+#      - ReaderCount=2
+#      - PackerChunkThreshold=10000
+#      - InputChunkQueueCapacity=15000
+#    depends_on:
+#      - server
+#    networks:
+#      - testing_net
+#    volumes:
+#      - ./config/service:/etc/distros/config:ro
+
+#  autoclient:
+#    container_name: autoclient
+#    image: tp1node:latest
+#    entrypoint: /node autoclient
+#    environment:
+#      - WriterCount=100
+#      - ReaderCount=4
+#    depends_on:
+#      - service
+#    networks:
+#      - testing_net
+#    volumes:
+#      - ./config/autoclient:/etc/distros/config:ro
+
+networks:
+  testing_net:
+    name: testing_net
+    ipam:
+      driver: default
+      config:
+       - subnet: 172.25.125.0/24

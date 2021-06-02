@@ -1,5 +1,5 @@
 *.csv
 *.drawio
-docs/
 code/bin
+*.drawio
 TODO

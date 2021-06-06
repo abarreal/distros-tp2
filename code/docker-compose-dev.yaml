@@ -1,10 +1,73 @@
 version: '3'
 services:
 
-  test:
-    container_name: test
+  rabbit:
+    container_name: rabbit
+    image: rabbitmq:3
+    networks:
+      - testing_net
+
+  client:
+    container_name: client
     image: tp2node:latest
-    entrypoint: /node test
+    entrypoint: /node client
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - MatchDataPath=/data/matches.csv
+      - MatchDataExchange=match_record_fanout
+      - MatchDataBatchSize=10000
+      - PlayerDataExchange=player_record_fanout
+    networks:
+      - testing_net
+    volumes:
+      - ../data:/data:ro
+
+  long_match_filter_1:
+    container_name: long_match_filter_1
+    image: tp2node:latest
+    entrypoint: /node lmfilter
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - InstanceId=1
+      - MatchDataExchange=match_record_fanout
+      - LongMatchFilterInputQueue=lmfilter_input_queue
+      - AggregationExchange=aggregation_exchange
+      - LongMatchQueue=long_matches
+    networks:
+      - testing_net
+
+  long_match_filter_2:
+    container_name: long_match_filter_2
+    image: tp2node:latest
+    entrypoint: /node lmfilter
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - InstanceId=2
+      - MatchDataExchange=match_record_fanout
+      - LongMatchFilterInputQueue=lmfilter_input_queue
+      - AggregationExchange=aggregation_exchange
+      - LongMatchQueue=long_matches
+    networks:
+      - testing_net
+
+  sink:
+    container_name: sink
+    image: tp2node:latest
+    entrypoint: /node sink
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - AggregationExchange=aggregation_exchange
+      - LongMatchQueue=long_matches
+    networks:
+      - testing_net
 
 #  server:
 #    container_name: server

@@ -3,12 +3,26 @@ package main
 import (
 	"log"
 	"os"
+
+	"tp2.aba.distros.fi.uba.ar/node/client"
+	"tp2.aba.distros.fi.uba.ar/node/filter"
+	"tp2.aba.distros.fi.uba.ar/node/sink"
 )
 
 func main() {
 	// Run the specific node depending on program parameters.
 	program := os.Args[1]
 
-	log.Printf("Starting program: %s", program)
-	// TODO: Call Run method depending on argument.
+	log.Printf("starting program: %s\n", program)
+
+	switch program {
+	case "client":
+		client.Run()
+	case "lmfilter":
+		filter.RunLongMatchFilter()
+	case "sink":
+		sink.Run()
+	default:
+		log.Println("unexpected program name")
+	}
 }

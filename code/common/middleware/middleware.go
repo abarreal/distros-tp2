@@ -424,7 +424,7 @@ func CreateJointDataPublisher() (*JointDataPublisher, error) {
 	}
 }
 
-func (publisher *JointDataPublisher) PublishJointData(records JointMatchRecordBatch) error {
+func (publisher *JointDataPublisher) PublishJointData(records *JointMatchRecord) error {
 	if serialized, err := records.Serialize(); err != nil {
 		return err
 	} else {

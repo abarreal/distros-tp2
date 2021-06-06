@@ -15,9 +15,13 @@ import (
 
 const MatchDataPathVarName string = "MatchDataPath"
 const MatchDataPathDefault string = "matches.csv"
-
 const MatchDataBatchSizeVarName string = "MatchDataBatchSize"
 const MatchDataBatchSizeDefault int = 512
+
+const PlayerDataPathVarName string = "PlayerDataPath"
+const PlayerDataPathDefault string = "match_players.csv"
+const PlayerDataBatchSizeVarName string = "PlayerDataBatchSize"
+const PlayerDataBatchSizeDefault int = 512
 
 func Run() {
 	waitGroup := &sync.WaitGroup{}
@@ -115,6 +119,71 @@ func MatchDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 }
 
 func PlayerDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
+	log.Println("[Player Data Writer] starting")
+
+	// Ensure that done will be called.
 	defer waitGroup.Done()
-	// TODO
+	// Connect to the exchange.
+	publisher, err := middleware.CreatePlayerDataPublisher()
+
+	if err != nil {
+		log.Println("[Player Data Writer] could not connect to the exchange")
+		return
+	} else {
+		log.Println("[Player Data Writer] established a connection to the exchange")
+	}
+
+	// Get path to match data.
+	path := config.GetStringOrDefault(PlayerDataPathVarName, PlayerDataPathDefault)
+	// Open the file for reading.
+	file, err := os.Open(path)
+
+	if err != nil {
+		log.Println("[Player Data Writer] could not open player data file")
+	} else {
+		log.Println("[Player Data Writer] opened data file for reading, reading records")
+
+		// Get batch size for record batches and instantiate a buffer.
+		batchSize, _ := config.GetIntOrDefault(PlayerDataBatchSizeVarName, PlayerDataBatchSizeDefault)
+		batchBuffer := make([]*middleware.PlayerRecord, 0, batchSize)
+
+		// Read the file line by line and batch match records.
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			// Get current line.
+			line := scanner.Text()
+			// Split line by fields.
+			split := strings.Split(line, ",")
+			// Construct a new match record from the data.
+			record := middleware.CreatePlayerRecordFromSlice(split)
+			// Batch the record.
+			batchBuffer = append(batchBuffer, record)
+			// If the buffer is full, publish the batch and reset the buffer.
+			if len(batchBuffer) == cap(batchBuffer) {
+				log.Println("publishing new player data batch")
+				// Create a batch from the buffered records.
+				batch := middleware.CreatePlayerRecordBatch(batchBuffer)
+				// Publish the batch.
+				if err := publisher.PublishPlayerData(batch); err != nil {
+					log.Println("[Player Data Writer] could not publish batch")
+				}
+				// Empty the buffer.
+				batchBuffer = batchBuffer[:0]
+			}
+		}
+		// If there are records left in the buffer, publish them.
+		if len(batchBuffer) > 0 {
+			// Create a batch from the buffered records.
+			batch := middleware.CreatePlayerRecordBatch(batchBuffer)
+			// Publish the batch.
+			if err := publisher.PublishPlayerData(batch); err != nil {
+				log.Println("[Player Data Writer] could not publish batch")
+			}
+		}
+	}
+
+	if err := publisher.Close(); err != nil {
+		log.Println("[Player Data Writer] could not close connection to the exchange")
+	}
 }

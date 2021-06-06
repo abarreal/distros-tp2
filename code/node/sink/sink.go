@@ -88,7 +88,6 @@ func (sink *Sink) runPeriodicReport(waitGroup *sync.WaitGroup, quitChannel <-cha
 			sink.showStats()
 			timer = time.After(time.Duration(StatisticsDisplayPeriod) * time.Second)
 		}
-
 	}
 
 	// Send finalization signal.

@@ -16,9 +16,11 @@ services:
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
       - MatchDataPath=/data/matches.csv
+      - PlayerDataPath=/data/match_players.csv
       - MatchDataExchange=match_record_fanout
       - MatchDataBatchSize=10000
       - PlayerDataExchange=player_record_fanout
+      - PlayerDataBatchSize=10000
     networks:
       - testing_net
     volumes:

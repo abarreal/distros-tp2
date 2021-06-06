@@ -26,6 +26,23 @@ type PlayerRecordBatch struct {
 	Records []*PlayerRecord `json:"records"`
 }
 
+func CreatePlayerRecordFromSlice(slice []string) *PlayerRecord {
+	// Parse fields that need to be parsed.
+	rating, _ := strconv.ParseFloat(slice[2], 32)
+	team, _ := strconv.Atoi(slice[5])
+	winner, _ := strconv.ParseBool(slice[6])
+
+	return CreatePlayerRecord(
+		slice[0],        // token
+		slice[1],        // match token
+		float32(rating), // rating
+		slice[3],        // color
+		slice[4],        // civ
+		team,            // team
+		winner,          // winner
+	)
+}
+
 func CreatePlayerRecord(token string, match string, rating float32, color string,
 	civ string, team int, winner bool) *PlayerRecord {
 	// Instantiate a new player record from the data.

@@ -200,7 +200,7 @@ type playerDataExchanger struct {
 
 // Publisher
 type PlayerDataPublisher struct {
-	*playerDataExchanger
+	playerDataExchanger
 }
 
 func (exchanger *playerDataExchanger) initialize() error {

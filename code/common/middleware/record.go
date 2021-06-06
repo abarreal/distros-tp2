@@ -221,37 +221,65 @@ func DeserializeMatchRecords(serialized []byte) (*MatchRecordBatch, error) {
 // Joint Record
 //-------------------------------------------------------------------------------------------------
 type JointMatchRecord struct {
+	MatchToken string               `json:"match_token"`
+	Players    []*JointPlayerRecord `json:"match_players"`
 }
 
 type JointPlayerRecord struct {
+	Token string `json:"player_token"`
 }
 
 type JointMatchRecordBatch struct {
+	Records []*JointMatchRecord `json:"records"`
 }
 
 func Join(match *MatchRecord, players []*PlayerRecord) *JointMatchRecord {
-	// TODO
-	return nil
+	// Instantiate a joint match record from the match itself.
+	record := &JointMatchRecord{}
+	record.MatchToken = match.Token
+	record.Players = make([]*JointPlayerRecord, len(players))
+
+	// Set all players.
+	for i, player := range players {
+		record.Players[i] = &JointPlayerRecord{}
+		record.Players[i].Token = player.Token
+	}
+
+	return record
 }
 
 func (record *JointMatchRecord) Serialize() ([]byte, error) {
-	// TODO
-	return nil, nil
+	if serialized, err := json.Marshal(record); err != nil {
+		return nil, err
+	} else {
+		return serialized, nil
+	}
 }
 
-func DeserializeJointMatchRecord(serialized string) (*JointMatchRecord, error) {
-	// TODO
-	return nil, nil
+func DeserializeJointMatchRecord(serialized []byte) (*JointMatchRecord, error) {
+	var record JointMatchRecord
+	if err := json.Unmarshal(serialized, &record); err != nil {
+		return nil, err
+	} else {
+		return &record, nil
+	}
 }
 
 func (record *JointMatchRecordBatch) Serialize() ([]byte, error) {
-	// TODO
-	return nil, nil
+	if serialized, err := json.Marshal(record); err != nil {
+		return nil, err
+	} else {
+		return serialized, nil
+	}
 }
 
 func DeserializeJointMatchRecords(serialized []byte) (*JointMatchRecordBatch, error) {
-	// TODO
-	return nil, nil
+	var record JointMatchRecordBatch
+	if err := json.Unmarshal(serialized, &record); err != nil {
+		return nil, err
+	} else {
+		return &record, nil
+	}
 }
 
 //=================================================================================================

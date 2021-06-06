@@ -161,7 +161,6 @@ func PlayerDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 			batchBuffer = append(batchBuffer, record)
 			// If the buffer is full, publish the batch and reset the buffer.
 			if len(batchBuffer) == cap(batchBuffer) {
-				log.Println("publishing new player data batch")
 				// Create a batch from the buffered records.
 				batch := middleware.CreatePlayerRecordBatch(batchBuffer)
 				// Publish the batch.

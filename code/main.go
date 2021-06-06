@@ -6,6 +6,7 @@ import (
 
 	"tp2.aba.distros.fi.uba.ar/node/client"
 	"tp2.aba.distros.fi.uba.ar/node/filter"
+	"tp2.aba.distros.fi.uba.ar/node/join"
 	"tp2.aba.distros.fi.uba.ar/node/sink"
 )
 
@@ -20,6 +21,8 @@ func main() {
 		client.Run()
 	case "lmfilter":
 		filter.RunLongMatchFilter()
+	case "join":
+		join.Run()
 	case "sink":
 		sink.Run()
 	default:

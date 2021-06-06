@@ -35,6 +35,7 @@ func RunLongMatchFilter() error {
 		LongMatchFilterInputQueueDefault)
 	// Initialize consumer.
 	if consumer, err = middleware.CreateMatchDataConsumer(queueName); err != nil {
+		log.Println("could not create match data consumer")
 		return err
 	}
 	consumer.RegisterOnWaitGroup(waitGroup)

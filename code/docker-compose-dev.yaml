@@ -26,6 +26,19 @@ services:
     volumes:
       - ../data:/data:ro
 
+  join:
+    container_name: join
+    image: tp2node:latest
+    entrypoint: /node join
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - MatchDataExchange=match_record_fanout
+      - PlayerDataExchange=player_record_fanout
+    networks:
+      - testing_net
+
   long_match_filter_1:
     container_name: long_match_filter_1
     image: tp2node:latest

@@ -551,7 +551,7 @@ func (publisher *AggregationDataPublisher) PublishLargeRatingDifferenceMatch(rec
 func (publisher *AggregationDataPublisher) PublishCivilizationUsageRecord(batch *CivilizationInfoRecordBatch) error {
 	qname := config.GetStringOrDefault(
 		Top5CivilizationsQueueVarName,
-		Top5CivilizationsQueueVarName)
+		Top5CivilizationsQueueDefault)
 	return publisher.publishThroughQueue(batch, qname)
 }
 

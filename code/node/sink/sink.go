@@ -149,18 +149,16 @@ func (sink *Sink) handleArenaCivilizationVictoryData(batch *middleware.Civilizat
 		sink.civilizationVictoryStatsInArenaLock.Lock()
 		// Get current stats and initialize if none.
 		current, found := sink.civilizationVictoryStatsInArena[record.CivilizationName]
-
 		if !found {
 			// Create an array of length 2 to hold victories in the first element and defeats in the second.
 			current = []int{0, 0}
+			sink.civilizationVictoryStatsInArena[record.CivilizationName] = current
 		}
-
 		if record.IndicatesVictory() {
 			current[0]++
 		} else if record.IndicatesDefeat() {
 			current[1]++
 		}
-
 		sink.civilizationVictoryStatsInArenaLock.Unlock()
 	}
 }
@@ -172,10 +170,8 @@ const StatisticsDisplayPeriod int = 15
 
 func (sink *Sink) runPeriodicReport(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 	stopping := false
-
 	// Statistics will be displayed every StatisticsDisplayPeriod seconds.
 	timer := time.After(time.Duration(StatisticsDisplayPeriod) * time.Second)
-
 	for !stopping {
 		select {
 		case <-quitChannel:
@@ -185,7 +181,6 @@ func (sink *Sink) runPeriodicReport(waitGroup *sync.WaitGroup, quitChannel <-cha
 			timer = time.After(time.Duration(StatisticsDisplayPeriod) * time.Second)
 		}
 	}
-
 	// Send finalization signal.
 	waitGroup.Done()
 }

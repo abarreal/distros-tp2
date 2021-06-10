@@ -15,8 +15,7 @@ import (
 //=================================================================================================
 // Long matches
 //-------------------------------------------------------------------------------------------------
-const LongMatchFilterInputQueueVarName string = "LongMatchFilterInputQueue"
-const LongMatchFilterInputQueueDefault string = "lmfilter_input_queue"
+const LongMatchFilterInputQueue string = "lmfilter_input_queue"
 
 type LongMatchFilterInstance struct {
 	id        int
@@ -30,10 +29,8 @@ func RunLongMatchFilter() error {
 	// Instantiate a filter object to hold some data.
 	filter := &LongMatchFilterInstance{}
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
-	// Get the name of the queue shared by long match filter instances.
-	queueName := config.GetStringOrDefault(
-		LongMatchFilterInputQueueVarName,
-		LongMatchFilterInputQueueDefault)
+	// All instances of this filter will be listening on the same queue.
+	queueName := LongMatchFilterInputQueue
 	// Initialize consumer.
 	if consumer, err = middleware.CreateMatchDataConsumer(queueName); err != nil {
 		log.Println("could not create match data consumer")
@@ -90,8 +87,7 @@ func (filter *LongMatchFilterInstance) longMatchCallback(batch *middleware.Match
 //=================================================================================================
 // Large rating difference
 //-------------------------------------------------------------------------------------------------
-const LargeRatingDifferenceFilterInputQueueVarName string = "LargeRatingDifferenceInputQueue"
-const LargeRatingDifferenceFilterInputQueueDefault string = "ldf_input_queue"
+const LargeRatingDifferenceFilterInputQueue string = "ldf_input_queue"
 
 type LargeRatingDifferenceFilterInstance struct {
 	id        int
@@ -105,10 +101,8 @@ func RunLargeRatingDifferenceFilter() error {
 	// Instantiate a filter object to hold some data.
 	filter := &LargeRatingDifferenceFilterInstance{}
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
-	// Get the name of the queue shared by long match filter instances.
-	queueName := config.GetStringOrDefault(
-		LargeRatingDifferenceFilterInputQueueVarName,
-		LargeRatingDifferenceFilterInputQueueDefault)
+	// All instances of this filter will be listening on the same queue.
+	queueName := LargeRatingDifferenceFilterInputQueue
 	// Initialize consumer.
 	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
 		log.Println("could not create match data consumer")
@@ -172,8 +166,7 @@ func (filter *LargeRatingDifferenceFilterInstance) largeRatingDifferenceCallback
 //=================================================================================================
 // Top 5 most used civilizations
 //-------------------------------------------------------------------------------------------------
-const CivilizationUsageCountInputQueueVarName string = "CivilizationUsageCountInputQueue"
-const CivilizationUsageCountInputQueueDefault string = "civilization_usage_count_input"
+const CivilizationUsageCountInputQueue string = "civilization_usage_count_input"
 
 type CivilizationUsageCountFilter struct {
 	id        int
@@ -187,10 +180,8 @@ func RunCivilizationUsageCountFilter() error {
 	// Instantiate a filter object to hold some data.
 	filter := &CivilizationUsageCountFilter{}
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
-	// Get the name of the queue shared by long match filter instances.
-	queueName := config.GetStringOrDefault(
-		CivilizationUsageCountInputQueueVarName,
-		CivilizationUsageCountInputQueueDefault)
+	// All instances of this filter will be listening on the same queue.
+	queueName := CivilizationUsageCountInputQueue
 	// Initialize consumer.
 	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
 		log.Println("could not create joint data consumer")
@@ -251,8 +242,7 @@ func (filter *CivilizationUsageCountFilter) jointDataCallbackForUsageCount(
 //=================================================================================================
 // Civilization victory rate
 //-------------------------------------------------------------------------------------------------
-const CivilizationVictoryDataFilterInputQueueVarName string = "CivilizationVictoryDataFilterInputQueue"
-const CivilizationVictoryDataFilterInputQueueDefault string = "civilization_victory_data_filter_input"
+const CivilizationVictoryDataFilterInputQueue string = "civilization_victory_data_filter_input"
 
 type CivilizationVictoryDataFilter struct {
 	id        int
@@ -266,10 +256,8 @@ func RunCivilizationVictoryDataFilter() error {
 	// Instantiate a filter object to hold some data.
 	filter := &CivilizationVictoryDataFilter{}
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
-	// Get the name of the queue shared by long match filter instances.
-	queueName := config.GetStringOrDefault(
-		CivilizationVictoryDataFilterInputQueueVarName,
-		CivilizationVictoryDataFilterInputQueueDefault)
+	// All instances of this filter will be listening on the same queue.
+	queueName := CivilizationVictoryDataFilterInputQueue
 	// Initialize consumer.
 	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
 		log.Println("could not create joint data consumer")

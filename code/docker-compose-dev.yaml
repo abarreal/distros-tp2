@@ -40,53 +40,49 @@ services:
     networks:
       - testing_net
 
-#  long_match_filter_1:
-#    container_name: long_match_filter_1
-#    image: tp2node:latest
-#    entrypoint: /node lmfilter
-#    depends_on:
-#      - rabbit
-#    environment:
-#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-#      - InstanceId=1
-#      - MatchDataExchange=match_record_fanout
-#      - LongMatchFilterInputQueue=lmfilter_input_queue
-#      - AggregationExchange=aggregation_exchange
-#      - LongMatchQueue=long_matches
-#    networks:
-#      - testing_net
+  long_match_filter_1:
+    container_name: long_match_filter_1
+    image: tp2node:latest
+    entrypoint: /node lmfilter
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - InstanceId=1
+      - MatchDataExchange=match_record_fanout
+      - LongMatchFilterInputQueue=lmfilter_input_queue
+      - AggregationExchange=aggregation_exchange
+      - LongMatchQueue=long_matches
+    networks:
+      - testing_net
 
-#  long_match_filter_2:
-#    container_name: long_match_filter_2
-#    image: tp2node:latest
-#    entrypoint: /node lmfilter
-#    depends_on:
-#      - rabbit
-#    environment:
-#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-#      - InstanceId=2
-#      - MatchDataExchange=match_record_fanout
-#      - LongMatchFilterInputQueue=lmfilter_input_queue
-#      - AggregationExchange=aggregation_exchange
-#      - LongMatchQueue=long_matches
-#    networks:
-#      - testing_net
+  long_match_filter_2:
+    container_name: long_match_filter_2
+    image: tp2node:latest
+    entrypoint: /node lmfilter
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - InstanceId=2
+      - MatchDataExchange=match_record_fanout
+      - LongMatchFilterInputQueue=lmfilter_input_queue
+      - AggregationExchange=aggregation_exchange
+      - LongMatchQueue=long_matches
+    networks:
+      - testing_net
 
-#  large_rating_difference_filter_1:
-#    container_name: large_rating_difference_filter_1
-#    image: tp2node:latest
-#    entrypoint: /node lrdfilter
-#    depends_on:
-#      - rabbit
-#    environment:
-#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-#      - InstanceId=1
-#      - JointDataExchange=joint_record_fanout
-#      - LargeRatingDifferenceInputQueue=ldf_input_queue
-#      - AggregationExchange=aggregation_exchange
-#      - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
-#    networks:
-#      - testing_net
+  large_rating_difference_filter_1:
+    container_name: large_rating_difference_filter_1
+    image: tp2node:latest
+    entrypoint: /node lrdfilter
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - InstanceId=1
+    networks:
+      - testing_net
 
   top5_most_used_filter_1:
     container_name: top5_most_used_filter_1
@@ -97,10 +93,18 @@ services:
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
       - InstanceId=1
-      - JointDataExchange=joint_record_fanout
-      - CivilizationUsageCountInputQueue=civilization_usage_count_input
-      - AggregationExchange=aggregation_exchange
-      - Top5CivilizationQueue=top5_civilizations
+    networks:
+      - testing_net
+
+  civ_performance_filter_1:
+    container_name: civ_performance_filter_1
+    image: tp2node:latest
+    entrypoint: /node civperformancefilter
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+      - InstanceId=1
     networks:
       - testing_net
 
@@ -112,54 +116,8 @@ services:
       - rabbit
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - AggregationExchange=aggregation_exchange
-      - LongMatchQueue=long_matches
-      - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
-      - Top5CivilizationQueue=top5_civilizations
-      - CivilizationVictoryDataQueue=civilization_victory_data
     networks:
       - testing_net
-
-#  server:
-#    container_name: server
-#    image: tp1node:latest
-#    entrypoint: /node blockchain
-#    environment:
-#      - ReaderCount=2
-#    networks:
-#      - testing_net
-#    volumes:
-#      - ./config/blockchain:/etc/distros/config:ro
-
-#  service:
-#    container_name: service
-#    image: tp1node:latest
-#    entrypoint: /node service
-#    environment:
-#      - BlockchainServerName=server
-#      - ReaderCount=2
-#      - PackerChunkThreshold=10000
-#      - InputChunkQueueCapacity=15000
-#    depends_on:
-#      - server
-#    networks:
-#      - testing_net
-#    volumes:
-#      - ./config/service:/etc/distros/config:ro
-
-#  autoclient:
-#    container_name: autoclient
-#    image: tp1node:latest
-#    entrypoint: /node autoclient
-#    environment:
-#      - WriterCount=100
-#      - ReaderCount=4
-#    depends_on:
-#      - service
-#    networks:
-#      - testing_net
-#    volumes:
-#      - ./config/autoclient:/etc/distros/config:ro
 
 networks:
   testing_net:

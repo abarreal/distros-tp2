@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -140,12 +141,10 @@ func (filter *LargeRatingDifferenceFilterInstance) largeRatingDifferenceCallback
 	batch *middleware.JointMatchRecordBatch) {
 
 	for _, record := range batch.Records {
-
 		// Determine whether the match was 1v1.
 		if !record.Is1v1() {
 			continue
 		}
-
 		// Determine whether the rating of the winner is greater than 1000.
 		_, winner := record.Winner()
 
@@ -171,11 +170,175 @@ func (filter *LargeRatingDifferenceFilterInstance) largeRatingDifferenceCallback
 }
 
 //=================================================================================================
-// Civilization victories
+// Top 5 most used civilizations
 //-------------------------------------------------------------------------------------------------
-// TODO
+const CivilizationUsageCountInputQueueVarName string = "CivilizationUsageCountInputQueue"
+const CivilizationUsageCountInputQueueDefault string = "civilization_usage_count_input"
+
+type CivilizationUsageCountFilter struct {
+	id        int
+	publisher *middleware.AggregationDataPublisher
+}
+
+func RunCivilizationUsageCountFilter() error {
+	waitGroup := &sync.WaitGroup{}
+	var consumer *middleware.JointDataConsumer = nil
+	var err error = nil
+	// Instantiate a filter object to hold some data.
+	filter := &CivilizationUsageCountFilter{}
+	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
+	// Get the name of the queue shared by long match filter instances.
+	queueName := config.GetStringOrDefault(
+		CivilizationUsageCountInputQueueVarName,
+		CivilizationUsageCountInputQueueDefault)
+	// Initialize consumer.
+	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
+		log.Println("could not create joint data consumer")
+		return err
+	}
+	consumer.RegisterOnWaitGroup(waitGroup)
+	// Initialize the publisher to publish results.
+	filter.publisher, err = middleware.CreateAggregationDataPublisher()
+	// Close the consumer and return if the publisher could not be initialized.
+	if err != nil {
+		consumer.Close()
+		return err
+	}
+	// Begin consuming match data.
+	log.Println("beginning joint data consumption")
+	go consumer.Consume(filter.jointDataCallbackForUsageCount)
+
+	// Wait for a quit signal.
+	sigchannel := make(chan os.Signal, 1)
+	signal.Notify(sigchannel, syscall.SIGINT, syscall.SIGTERM)
+	<-sigchannel
+
+	// Stop the consumer.
+	consumer.Stop()
+	waitGroup.Wait()
+	return nil
+}
+
+func (filter *CivilizationUsageCountFilter) jointDataCallbackForUsageCount(
+	batch *middleware.JointMatchRecordBatch) {
+
+	for _, record := range batch.Records {
+		// If the map is not islands, continue.
+		if strings.ToLower(record.MapName) != "islands" {
+			continue
+		}
+		// If the game is not a team match, continue.
+		if !record.IsTeamGame() {
+			continue
+		}
+		// We have a match we are interested in. Check the players to see
+		// what civilization they are using.
+		for _, player := range record.Players {
+			// If the player is not pro, continue.
+			if !player.IsPro() {
+				continue
+			}
+			// We have a player we are interested in. Check what civilization they are using.
+			civRecord := middleware.CreateCivilizationUsageRecord(player.CivilizationName)
+			civRecordBatch := middleware.CreateCivilizationInfoRecordBatch([]*middleware.CivilizationInfoRecord{civRecord})
+			if err := filter.publisher.PublishCivilizationUsageRecord(civRecordBatch); err != nil {
+				log.Println("civilization usage record could not be published")
+			}
+		}
+	}
+}
 
 //=================================================================================================
-// Top 5 civilizations
+// Civilization victory rate
 //-------------------------------------------------------------------------------------------------
-// TODO
+const CivilizationVictoryDataFilterInputQueueVarName string = "CivilizationVictoryDataFilterInputQueue"
+const CivilizationVictoryDataFilterInputQueueDefault string = "civilization_victory_data_filter_input"
+
+type CivilizationVictoryDataFilter struct {
+	id        int
+	publisher *middleware.AggregationDataPublisher
+}
+
+func RunCivilizationVictoryDataFilter() error {
+	waitGroup := &sync.WaitGroup{}
+	var consumer *middleware.JointDataConsumer = nil
+	var err error = nil
+	// Instantiate a filter object to hold some data.
+	filter := &CivilizationVictoryDataFilter{}
+	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
+	// Get the name of the queue shared by long match filter instances.
+	queueName := config.GetStringOrDefault(
+		CivilizationVictoryDataFilterInputQueueVarName,
+		CivilizationVictoryDataFilterInputQueueDefault)
+	// Initialize consumer.
+	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
+		log.Println("could not create joint data consumer")
+		return err
+	}
+	consumer.RegisterOnWaitGroup(waitGroup)
+	// Initialize the publisher to publish results.
+	filter.publisher, err = middleware.CreateAggregationDataPublisher()
+	// Close the consumer and return if the publisher could not be initialized.
+	if err != nil {
+		consumer.Close()
+		return err
+	}
+	// Begin consuming match data.
+	log.Println("beginning joint data consumption")
+	go consumer.Consume(filter.jointDataCallbackForVictoryStats)
+
+	// Wait for a quit signal.
+	sigchannel := make(chan os.Signal, 1)
+	signal.Notify(sigchannel, syscall.SIGINT, syscall.SIGTERM)
+	<-sigchannel
+
+	// Stop the consumer.
+	consumer.Stop()
+	waitGroup.Wait()
+	return nil
+}
+
+func (filter *CivilizationVictoryDataFilter) jointDataCallbackForVictoryStats(
+	batch *middleware.JointMatchRecordBatch) {
+
+	for _, record := range batch.Records {
+		// If the map is not arena, continue.
+		if strings.ToLower(record.MapName) != "arena" {
+			continue
+		}
+		// If the game is not 1v1, continue.
+		if !record.Is1v1() {
+			continue
+		}
+		// Get the two players of the match. If they are using the same
+		// civilization, continue.
+		player1 := record.Players[0]
+		player2 := record.Players[1]
+
+		if player1.CivilizationName == player2.CivilizationName {
+			continue
+		}
+
+		// Publish statistics about the winner.
+		var victor *middleware.JointPlayerRecord = nil
+		var loser *middleware.JointPlayerRecord = nil
+
+		if player1.Winner {
+			victor = player1
+			loser = player2
+		} else {
+			victor = player2
+			loser = player1
+		}
+
+		winRecord := middleware.CreateCivilizationVictoryRecord(victor.CivilizationName)
+		loseRecord := middleware.CreateCivilizationDefeatRecord(loser.CivilizationName)
+		batch := middleware.CreateCivilizationInfoRecordBatch([]*middleware.CivilizationInfoRecord{
+			winRecord,
+			loseRecord,
+		})
+		if err := filter.publisher.PublishCivilizationPerformanceData(batch); err != nil {
+			log.Println("civilization performance data could not be published")
+		}
+	}
+}

@@ -72,19 +72,35 @@ services:
 #    networks:
 #      - testing_net
 
-  large_rating_difference_filter_1:
-    container_name: large_rating_difference_filter_1
+#  large_rating_difference_filter_1:
+#    container_name: large_rating_difference_filter_1
+#    image: tp2node:latest
+#    entrypoint: /node lrdfilter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=1
+#      - JointDataExchange=joint_record_fanout
+#      - LargeRatingDifferenceInputQueue=ldf_input_queue
+#      - AggregationExchange=aggregation_exchange
+#      - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
+#    networks:
+#      - testing_net
+
+  top5_most_used_filter_1:
+    container_name: top5_most_used_filter_1
     image: tp2node:latest
-    entrypoint: /node lrdfilter
+    entrypoint: /node top5filter
     depends_on:
       - rabbit
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
       - InstanceId=1
       - JointDataExchange=joint_record_fanout
-      - LargeRatingDifferenceInputQueue=ldf_input_queue
+      - CivilizationUsageCountInputQueue=civilization_usage_count_input
       - AggregationExchange=aggregation_exchange
-      - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
+      - Top5CivilizationQueue=top5_civilizations
     networks:
       - testing_net
 
@@ -99,6 +115,8 @@ services:
       - AggregationExchange=aggregation_exchange
       - LongMatchQueue=long_matches
       - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
+      - Top5CivilizationQueue=top5_civilizations
+      - CivilizationVictoryDataQueue=civilization_victory_data
     networks:
       - testing_net
 

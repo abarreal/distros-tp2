@@ -62,11 +62,7 @@ func CreatePlayerRecord(token string, match string, rating float32, color string
 }
 
 func (record *PlayerRecord) Serialize() ([]byte, error) {
-	if serialized, err := json.Marshal(record); err != nil {
-		return nil, err
-	} else {
-		return serialized, nil
-	}
+	return json.Marshal(record)
 }
 
 func DeserializePlayerRecord(serialized []byte) (*PlayerRecord, error) {
@@ -105,6 +101,7 @@ func DeserializePlayerRecords(serialized []byte) (*PlayerRecordBatch, error) {
 var matchDurationRegex *regexp.Regexp = regexp.MustCompile(`^([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$`)
 
 const Ladder1v1 string = "RM_1v1"
+const LadderTeam string = "RM_TEAM"
 
 type MatchRecord struct {
 	Token         string  `json:"token"`
@@ -229,13 +226,15 @@ func DeserializeMatchRecords(serialized []byte) (*MatchRecordBatch, error) {
 type JointMatchRecord struct {
 	MatchToken string               `json:"match_token"`
 	Ladder     string               `json:"match_ladder"`
+	MapName    string               `json:"map_name"`
 	Players    []*JointPlayerRecord `json:"match_players"`
 }
 
 type JointPlayerRecord struct {
-	Token  string  `json:"token"`
-	Rating float32 `json:"rating"`
-	Winner bool    `json:"winner"`
+	Token            string  `json:"token"`
+	Rating           float32 `json:"rating"`
+	Winner           bool    `json:"winner"`
+	CivilizationName string  `json:"civ_name"`
 }
 
 type JointMatchRecordBatch struct {
@@ -244,6 +243,10 @@ type JointMatchRecordBatch struct {
 
 func (record *JointMatchRecord) Is1v1() bool {
 	return record.Ladder == Ladder1v1
+}
+
+func (record *JointMatchRecord) IsTeamGame() bool {
+	return record.Ladder == LadderTeam
 }
 
 func (record *JointMatchRecord) Winner() (int, *JointPlayerRecord) {
@@ -268,6 +271,10 @@ func (record *JointMatchRecord) Loser1v1() *JointPlayerRecord {
 	}
 }
 
+func (record *JointPlayerRecord) IsPro() bool {
+	return record.Rating >= 2000.0
+}
+
 func CreateJointMatchRecordBatch(records []*JointMatchRecord) *JointMatchRecordBatch {
 	return &JointMatchRecordBatch{records}
 }
@@ -277,6 +284,7 @@ func Join(match *MatchRecord, players []*PlayerRecord) *JointMatchRecord {
 	record := &JointMatchRecord{}
 	record.MatchToken = match.Token
 	record.Ladder = match.Ladder
+	record.MapName = match.GameMap
 	record.Players = make([]*JointPlayerRecord, len(players))
 
 	// Set all players.
@@ -285,6 +293,7 @@ func Join(match *MatchRecord, players []*PlayerRecord) *JointMatchRecord {
 		record.Players[i].Token = player.Token
 		record.Players[i].Rating = player.Rating
 		record.Players[i].Winner = player.Winner
+		record.Players[i].CivilizationName = player.Civ
 	}
 
 	return record
@@ -344,6 +353,61 @@ func (record *SingleTokenRecord) Serialize() ([]byte, error) {
 
 func DeserializeSingleTokenRecord(data []byte) (*SingleTokenRecord, error) {
 	var record SingleTokenRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, err
+	} else {
+		return &record, nil
+	}
+}
+
+// A type of record used to notify about a specific civilization.
+// The string detail can be used to specify a win, an usage, or anything else.
+const CivilizationVictoryIndicator string = "Victory"
+const CivilizationDefeatIndicator string = "Defeat"
+
+type CivilizationInfoRecord struct {
+	CivilizationName string `json:"civ_name"`
+	Detail           string `json:"detail"`
+}
+
+type CivilizationInfoRecordBatch struct {
+	Records []*CivilizationInfoRecord `json:"records"`
+}
+
+func (record *CivilizationInfoRecord) IndicatesVictory() bool {
+	return record.Detail == CivilizationVictoryIndicator
+}
+
+func (record *CivilizationInfoRecord) IndicatesDefeat() bool {
+	return record.Detail == CivilizationDefeatIndicator
+}
+
+func CreateCivilizationUsageRecord(civilizationName string) *CivilizationInfoRecord {
+	return CreateCivilizationInfoRecord(civilizationName, "")
+}
+
+func CreateCivilizationVictoryRecord(civilizationName string) *CivilizationInfoRecord {
+	return CreateCivilizationInfoRecord(civilizationName, CivilizationVictoryIndicator)
+}
+
+func CreateCivilizationDefeatRecord(civilizationName string) *CivilizationInfoRecord {
+	return CreateCivilizationInfoRecord(civilizationName, CivilizationDefeatIndicator)
+}
+
+func CreateCivilizationInfoRecord(civilizationName string, detail string) *CivilizationInfoRecord {
+	return &CivilizationInfoRecord{civilizationName, detail}
+}
+
+func CreateCivilizationInfoRecordBatch(records []*CivilizationInfoRecord) *CivilizationInfoRecordBatch {
+	return &CivilizationInfoRecordBatch{records}
+}
+
+func (record *CivilizationInfoRecordBatch) Serialize() ([]byte, error) {
+	return json.Marshal(record)
+}
+
+func DeserializeCivilizationInfoRecords(data []byte) (*CivilizationInfoRecordBatch, error) {
+	var record CivilizationInfoRecordBatch
 	if err := json.Unmarshal(data, &record); err != nil {
 		return nil, err
 	} else {

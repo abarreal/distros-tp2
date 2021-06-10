@@ -23,6 +23,10 @@ func main() {
 		filter.RunLongMatchFilter()
 	case "lrdfilter":
 		filter.RunLargeRatingDifferenceFilter()
+	case "top5filter":
+		filter.RunCivilizationUsageCountFilter()
+	case "civperformancefilter":
+		filter.RunCivilizationVictoryDataFilter()
 	case "join":
 		join.Run()
 	case "sink":

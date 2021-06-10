@@ -501,6 +501,12 @@ const LongMatchQueueNameDefault string = "long_matches"
 const LargeRatingDifferenceMatchQueueVarName string = "LargeRatingDifferenceMatchQueue"
 const LargeRatingDifferenceMatchQueueDefault string = "large_rating_difference_matches"
 
+const Top5CivilizationsQueueVarName string = "Top5CivilizationQueue"
+const Top5CivilizationsQueueDefault string = "top5_civilizations"
+
+const CivilizationVictoryDataQueueVarName string = "CivilizationVictoryDataQueue"
+const CivilizationVictoryDataQueueDefault string = "civilization_victory_data"
+
 type aggregationDataExchanger struct {
 	Connector
 	exchangeName string
@@ -540,6 +546,20 @@ func (publisher *AggregationDataPublisher) PublishLargeRatingDifferenceMatch(rec
 	// Get the name of the queue.
 	qname := config.GetStringOrDefault(LargeRatingDifferenceMatchQueueVarName, LargeRatingDifferenceMatchQueueDefault)
 	return publisher.publishThroughQueue(record, qname)
+}
+
+func (publisher *AggregationDataPublisher) PublishCivilizationUsageRecord(batch *CivilizationInfoRecordBatch) error {
+	qname := config.GetStringOrDefault(
+		Top5CivilizationsQueueVarName,
+		Top5CivilizationsQueueVarName)
+	return publisher.publishThroughQueue(batch, qname)
+}
+
+func (publisher *AggregationDataPublisher) PublishCivilizationPerformanceData(batch *CivilizationInfoRecordBatch) error {
+	qname := config.GetStringOrDefault(
+		CivilizationVictoryDataQueueVarName,
+		CivilizationVictoryDataQueueDefault)
+	return publisher.publishThroughQueue(batch, qname)
 }
 
 func (publisher *AggregationDataPublisher) publishThroughQueue(serializable Serializable, qname string) error {
@@ -674,5 +694,79 @@ func (consumer *LargeRatingDifferenceMatchDataConsumer) Consume(callback func(*S
 }
 
 func (consumer *LargeRatingDifferenceMatchDataConsumer) Stop() {
+	consumer.quit <- 0
+}
+
+//-------------------------------------------------------------------------------------------------
+// Civilization info records consumer
+//-------------------------------------------------------------------------------------------------
+type CivilizationInfoRecordConsumer struct {
+	aggregationDataExchanger
+	queueName string
+	quit      chan int
+	waitGroup *sync.WaitGroup
+}
+
+func CreateIslandsCivilizationUsageDataConsumer() (*CivilizationInfoRecordConsumer, error) {
+	queueName := config.GetStringOrDefault(
+		Top5CivilizationsQueueVarName,
+		Top5CivilizationsQueueDefault)
+	return createCivilizationInfoRecordConsumer(queueName)
+}
+
+func CreateArenaCivilizationVictoryDataConsumer() (*CivilizationInfoRecordConsumer, error) {
+	queueName := config.GetStringOrDefault(
+		CivilizationVictoryDataQueueVarName,
+		CivilizationVictoryDataQueueDefault)
+	return createCivilizationInfoRecordConsumer(queueName)
+}
+
+func createCivilizationInfoRecordConsumer(queueName string) (*CivilizationInfoRecordConsumer, error) {
+	// Instantiate the data consumer.
+	consumer := &CivilizationInfoRecordConsumer{}
+	consumer.queueName = queueName
+	// Connect and declare the exchange.
+	if err := consumer.initialize(); err != nil {
+		return nil, err
+	} else {
+		consumer.joinQueue(consumer.queueName)
+		consumer.bindQueueWithRoutingKey(
+			consumer.queueName, consumer.exchangeName, consumer.queueName)
+		return consumer, nil
+	}
+}
+
+func (consumer *CivilizationInfoRecordConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
+	consumer.waitGroup = waitGroup
+	consumer.waitGroup.Add(1)
+}
+
+// Blocks waiting for incoming player records. The given callback will be called for each record.
+func (consumer *CivilizationInfoRecordConsumer) Consume(callback func(*CivilizationInfoRecordBatch)) error {
+	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
+		return err
+	} else {
+		// Launch message reader.
+		log.Printf("consuming messages from queue %s\n", consumer.queueName)
+		go func() {
+			for m := range consumerChannel {
+				// Deserialize the batch.
+				if batch, err := DeserializeCivilizationInfoRecords(m.Body); err == nil {
+					// The batch was deserialized correctly. Have it handled by the callback.
+					callback(batch)
+				} else {
+					log.Println("could not deserialize record")
+				}
+			}
+		}()
+		// Wait for an incoming quit message.
+		<-consumer.quit
+		// Send finalization notification.
+		consumer.waitGroup.Done()
+		return nil
+	}
+}
+
+func (consumer *CivilizationInfoRecordConsumer) Stop() {
 	consumer.quit <- 0
 }

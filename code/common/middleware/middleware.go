@@ -267,7 +267,6 @@ func (consumer *PlayerDataConsumer) Consume(callback func(*PlayerRecordBatch)) e
 		// Launch message reader.
 		go func() {
 			for m := range consumerChannel {
-				log.Println("received player data batch")
 				// Deserialize the batch.
 				if batch, err := DeserializePlayerRecords(m.Body); err == nil {
 					// The batch was deserialized correctly. Have it handled by the callback.
@@ -366,7 +365,6 @@ func (consumer *MatchDataConsumer) Consume(callback func(*MatchRecordBatch)) err
 		// Launch message reader.
 		go func() {
 			for m := range consumerChannel {
-				log.Println("received match data batch")
 				// Deserialize the batch.
 				if batch, err := DeserializeMatchRecords(m.Body); err == nil {
 					// The batch was deserialized correctly. Have it handled by the callback.
@@ -426,7 +424,7 @@ func CreateJointDataPublisher() (*JointDataPublisher, error) {
 	}
 }
 
-func (publisher *JointDataPublisher) PublishJointData(records *JointMatchRecord) error {
+func (publisher *JointDataPublisher) PublishJointData(records *JointMatchRecordBatch) error {
 	if serialized, err := records.Serialize(); err != nil {
 		return err
 	} else {
@@ -613,5 +611,68 @@ func (consumer *LongMatchDataConsumer) Consume(callback func(*SingleTokenRecord)
 }
 
 func (consumer *LongMatchDataConsumer) Stop() {
+	consumer.quit <- 0
+}
+
+//-------------------------------------------------------------------------------------------------
+// Large rating difference consumer.
+//-------------------------------------------------------------------------------------------------
+type LargeRatingDifferenceMatchDataConsumer struct {
+	aggregationDataExchanger
+	queueName string
+	quit      chan int
+	waitGroup *sync.WaitGroup
+}
+
+func CreateLargeRatingDifferenceMatchDataConsumer() (*LargeRatingDifferenceMatchDataConsumer, error) {
+	// Instantiate the data consumer.
+	consumer := &LargeRatingDifferenceMatchDataConsumer{}
+	// Connect and declare the exchange.
+	if err := consumer.initialize(); err != nil {
+		return nil, err
+	} else {
+		// Get the name of the queue from config.
+		consumer.queueName = config.GetStringOrDefault(
+			LargeRatingDifferenceMatchQueueVarName,
+			LargeRatingDifferenceMatchQueueDefault)
+		consumer.joinQueue(consumer.queueName)
+		consumer.bindQueueWithRoutingKey(
+			consumer.queueName, consumer.exchangeName, consumer.queueName)
+		return consumer, nil
+	}
+}
+
+func (consumer *LargeRatingDifferenceMatchDataConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
+	consumer.waitGroup = waitGroup
+	consumer.waitGroup.Add(1)
+}
+
+// Blocks waiting for incoming player records. The given callback will be called for each record.
+func (consumer *LargeRatingDifferenceMatchDataConsumer) Consume(callback func(*SingleTokenRecord)) error {
+	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
+		return err
+	} else {
+		// Launch message reader.
+		log.Printf("consuming messages from queue %s\n", consumer.queueName)
+		go func() {
+			for m := range consumerChannel {
+				// Deserialize the batch.
+				if record, err := DeserializeSingleTokenRecord(m.Body); err == nil {
+					// The batch was deserialized correctly. Have it handled by the callback.
+					callback(record)
+				} else {
+					log.Println("could not deserialize record")
+				}
+			}
+		}()
+		// Wait for an incoming quit message.
+		<-consumer.quit
+		// Send finalization notification.
+		consumer.waitGroup.Done()
+		return nil
+	}
+}
+
+func (consumer *LargeRatingDifferenceMatchDataConsumer) Stop() {
 	consumer.quit <- 0
 }

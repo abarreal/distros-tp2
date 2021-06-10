@@ -15,8 +15,10 @@ import (
 // Main
 //-------------------------------------------------------------------------------------------------
 type Sink struct {
-	longMatchLock *sync.RWMutex
-	longMatches   []string
+	longMatchLock                  *sync.RWMutex
+	longMatches                    []string
+	largeRatingDifferenceMatchLock *sync.RWMutex
+	largeRatingDifferenceMatches   []string
 }
 
 func Run() {
@@ -24,6 +26,7 @@ func Run() {
 	sink := &Sink{}
 	sink.longMatches = make([]string, 0)
 	sink.longMatchLock = &sync.RWMutex{}
+	sink.largeRatingDifferenceMatchLock = &sync.RWMutex{}
 
 	// Create a wait group for all consumers.
 	waitGroup := &sync.WaitGroup{}
@@ -40,6 +43,22 @@ func Run() {
 		log.Println("launching long match data consumer")
 		go lmconsumer.Consume(sink.handleLongMatch)
 	}
+
+	// Initialize consumer to consume large rating difference matches.
+	lrdconsumer, err := middleware.CreateLargeRatingDifferenceMatchDataConsumer()
+
+	if err != nil {
+		log.Println("could not create large rating difference match data consumer")
+	} else {
+		// Register on the wait group.
+		lrdconsumer.RegisterOnWaitGroup(waitGroup)
+		// Lauch consumption in a separate goroutine.
+		log.Println("launching large rating difference match data consumer")
+		go lrdconsumer.Consume(sink.handleLargeRatingDifferenceMatch)
+	}
+
+	// Initialize other consumers.
+	// TODO
 
 	// Initialize periodic statistics reports.
 	statisticsQuitChannel := make(chan int, 1)
@@ -67,6 +86,12 @@ func (sink *Sink) handleLongMatch(record *middleware.SingleTokenRecord) {
 	sink.longMatchLock.Lock()
 	sink.longMatches = append(sink.longMatches, record.Token)
 	sink.longMatchLock.Unlock()
+}
+
+func (sink *Sink) handleLargeRatingDifferenceMatch(record *middleware.SingleTokenRecord) {
+	sink.largeRatingDifferenceMatchLock.Lock()
+	sink.largeRatingDifferenceMatches = append(sink.largeRatingDifferenceMatches, record.Token)
+	sink.largeRatingDifferenceMatchLock.Unlock()
 }
 
 //=================================================================================================
@@ -104,9 +129,21 @@ func (sink *Sink) showStats() {
 		longMatchDisplayCount = 16
 	}
 	for i := 0; i < longMatchDisplayCount; i++ {
-		log.Printf("long match #%d: %s\n", i, sink.longMatches[i])
+		log.Printf("long match #%d: %s\n", i+1, sink.longMatches[i])
 	}
 	sink.longMatchLock.RUnlock()
+
+	// Check large rating difference matches.
+	sink.largeRatingDifferenceMatchLock.RLock()
+	log.Printf("%d large rating difference matches found so far\n", len(sink.largeRatingDifferenceMatches))
+	largeRatingDifferenceMatchDisplayCount := len(sink.largeRatingDifferenceMatches)
+	if largeRatingDifferenceMatchDisplayCount > 16 {
+		largeRatingDifferenceMatchDisplayCount = 16
+	}
+	for i := 0; i < largeRatingDifferenceMatchDisplayCount; i++ {
+		log.Printf("large rating difference match #%d: %s\n", i+1, sink.largeRatingDifferenceMatches[i])
+	}
+	sink.largeRatingDifferenceMatchLock.RUnlock()
 
 	// Check remaining statistics.
 	// TODO

@@ -104,6 +104,8 @@ func DeserializePlayerRecords(serialized []byte) (*PlayerRecordBatch, error) {
 //-------------------------------------------------------------------------------------------------
 var matchDurationRegex *regexp.Regexp = regexp.MustCompile(`^([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$`)
 
+const Ladder1v1 string = "RM_1v1"
+
 type MatchRecord struct {
 	Token         string  `json:"token"`
 	WinningTeam   int     `json:"winning_team"`
@@ -226,27 +228,63 @@ func DeserializeMatchRecords(serialized []byte) (*MatchRecordBatch, error) {
 //-------------------------------------------------------------------------------------------------
 type JointMatchRecord struct {
 	MatchToken string               `json:"match_token"`
+	Ladder     string               `json:"match_ladder"`
 	Players    []*JointPlayerRecord `json:"match_players"`
 }
 
 type JointPlayerRecord struct {
-	Token string `json:"player_token"`
+	Token  string  `json:"token"`
+	Rating float32 `json:"rating"`
+	Winner bool    `json:"winner"`
 }
 
 type JointMatchRecordBatch struct {
 	Records []*JointMatchRecord `json:"records"`
 }
 
+func (record *JointMatchRecord) Is1v1() bool {
+	return record.Ladder == Ladder1v1
+}
+
+func (record *JointMatchRecord) Winner() (int, *JointPlayerRecord) {
+	for i, player := range record.Players {
+		if player.Winner {
+			return i, player
+		}
+	}
+	return 0, nil
+}
+
+func (record *JointMatchRecord) Loser1v1() *JointPlayerRecord {
+	if !record.Is1v1() {
+		return nil
+	} else {
+		winnerIdx, winner := record.Winner()
+		if winner != nil {
+			return record.Players[1-winnerIdx]
+		} else {
+			return nil
+		}
+	}
+}
+
+func CreateJointMatchRecordBatch(records []*JointMatchRecord) *JointMatchRecordBatch {
+	return &JointMatchRecordBatch{records}
+}
+
 func Join(match *MatchRecord, players []*PlayerRecord) *JointMatchRecord {
 	// Instantiate a joint match record from the match itself.
 	record := &JointMatchRecord{}
 	record.MatchToken = match.Token
+	record.Ladder = match.Ladder
 	record.Players = make([]*JointPlayerRecord, len(players))
 
 	// Set all players.
 	for i, player := range players {
 		record.Players[i] = &JointPlayerRecord{}
 		record.Players[i].Token = player.Token
+		record.Players[i].Rating = player.Rating
+		record.Players[i].Winner = player.Winner
 	}
 
 	return record

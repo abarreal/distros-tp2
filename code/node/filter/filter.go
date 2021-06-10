@@ -139,7 +139,35 @@ func RunLargeRatingDifferenceFilter() error {
 func (filter *LargeRatingDifferenceFilterInstance) largeRatingDifferenceCallback(
 	batch *middleware.JointMatchRecordBatch) {
 
-	log.Println("Received joint match record")
+	for _, record := range batch.Records {
+
+		// Determine whether the match was 1v1.
+		if !record.Is1v1() {
+			continue
+		}
+
+		// Determine whether the rating of the winner is greater than 1000.
+		_, winner := record.Winner()
+
+		if winner == nil {
+			continue
+		}
+		if winner.Rating < 1000 {
+			continue
+		}
+		// Determine whether the rating of the winner is at least 30% less than that
+		// of the winner.
+		loser := record.Loser1v1()
+		if !(winner.Rating < 0.7*loser.Rating) {
+			continue
+		}
+		// Publish record through publisher.
+		accepted := middleware.CreateSingleTokenRecord(record.MatchToken)
+		if err := filter.publisher.PublishLargeRatingDifferenceMatch(accepted); err != nil {
+			log.Println("large rating record could not be published")
+		}
+	}
+
 }
 
 //=================================================================================================

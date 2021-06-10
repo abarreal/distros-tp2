@@ -122,6 +122,8 @@ func MatchDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 				log.Println("[Match Data Writer] could not publish batch")
 			}
 		}
+
+		log.Println("[Match Data Writer] done sending data")
 	}
 
 	if err := publisher.Close(); err != nil {
@@ -197,6 +199,8 @@ func PlayerDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 				log.Println("[Player Data Writer] could not publish batch")
 			}
 		}
+
+		log.Println("[Player Data Writer] done sending data")
 	}
 
 	if err := publisher.Close(); err != nil {

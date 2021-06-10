@@ -15,8 +15,8 @@ services:
       - rabbit
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - MatchDataPath=/data/matches_test.csv
-      - PlayerDataPath=/data/players_test.csv
+      - MatchDataPath=/data/matches.csv
+      - PlayerDataPath=/data/match_players.csv
       - MatchDataExchange=match_record_fanout
       - MatchDataBatchSize=10000
       - PlayerDataExchange=player_record_fanout
@@ -36,6 +36,7 @@ services:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
       - MatchDataExchange=match_record_fanout
       - PlayerDataExchange=player_record_fanout
+      - JointDataExchange=joint_record_fanout
     networks:
       - testing_net
 
@@ -97,6 +98,7 @@ services:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
       - AggregationExchange=aggregation_exchange
       - LongMatchQueue=long_matches
+      - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
     networks:
       - testing_net
 

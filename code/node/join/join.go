@@ -162,7 +162,8 @@ func (join *Join) doJoin(matchToken string) {
 	players := join.unjoinedPlayers[matchToken]
 	// Do join and publish.
 	joint := middleware.Join(match, players)
-	join.publisher.PublishJointData(joint)
+	batch := middleware.CreateJointMatchRecordBatch([]*middleware.JointMatchRecord{joint})
+	join.publisher.PublishJointData(batch)
 	// Remove data from cache.
 	delete(join.unjoinedMatches, matchToken)
 	delete(join.unjoinedPlayers, matchToken)

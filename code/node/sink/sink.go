@@ -186,6 +186,8 @@ func (sink *Sink) runPeriodicReport(waitGroup *sync.WaitGroup, quitChannel <-cha
 }
 
 func (sink *Sink) showStats() {
+	log.Println("[ ] Displaying periodic statistics report")
+	log.Println("[ ]")
 	// Check victory rates by civilization in arena.
 	sink.displayCivilizationVictoryRates()
 	// Check civilization usage statistics in islands.
@@ -199,29 +201,29 @@ func (sink *Sink) showStats() {
 func (sink *Sink) displayCivilizationVictoryRates() {
 	sink.civilizationVictoryStatsInArenaLock.Lock()
 	defer sink.civilizationVictoryStatsInArenaLock.Unlock()
-	log.Println("victory rate by civilization in non-mirror 1v1 matches, in arena:")
+	log.Println("[o] Victory rate by civilization in non-mirror 1v1 matches, in arena:")
 	for cname, data := range sink.civilizationVictoryStatsInArena {
 		victories := data[0]
 		total := victories + data[1]
-		log.Printf("- %s : %.2f", cname, float32(victories)/(float32(total)))
+		log.Printf("[-] %s : %.2f", cname, float32(victories)/(float32(total)))
 	}
+	log.Println("[ ]")
 }
 
 func (sink *Sink) displayCivilizationUsageStatistics() {
 	sink.civilizationUsageCountInIslandsLock.Lock()
 	defer sink.civilizationUsageCountInIslandsLock.Unlock()
-	log.Println("top 5 most used civilizations by pro players in team matches, in islands:")
+	log.Println("[o] top 5 most used civilizations by pro players in team matches, in islands:")
 	// Copy map data into an array for sorting.
 	civUsageRecords := make([]*CivilizationUsageRecord, 0)
 	for _, record := range sink.civilizationUsageCountInIslands {
 		civUsageRecords = append(civUsageRecords, record)
 	}
-
 	if len(civUsageRecords) == 0 {
-		log.Println("no data yet")
+		log.Println("[x] no data yet")
 	} else if len(civUsageRecords) == 1 {
 		only := civUsageRecords[0]
-		log.Printf("#%d : %s, used %d times\n", 1, only.CivilizationName, only.UsageCount)
+		log.Printf("[-] #%d : %s, used %d times\n", 1, only.CivilizationName, only.UsageCount)
 	} else {
 		// Sort by usage count.
 		sort.Slice(civUsageRecords, func(i, j int) bool {
@@ -234,36 +236,49 @@ func (sink *Sink) displayCivilizationUsageStatistics() {
 		// Show top of those that we have.
 		for i := 0; i < shown; i++ {
 			current := civUsageRecords[i]
-			log.Printf("#%d : %s, used %d times\n", i+1, current.CivilizationName, current.UsageCount)
+			log.Printf("[-] #%d : %s, used %d times\n", i+1, current.CivilizationName, current.UsageCount)
 		}
 	}
+	log.Println("[ ]")
 }
 
 func (sink *Sink) displayLongMatches() {
 	sink.longMatchLock.RLock()
 	defer sink.longMatchLock.RUnlock()
-	log.Printf("%d long matches found so far\n", len(sink.longMatches))
+	log.Printf("[o] %d long matches found so far\n", len(sink.longMatches))
 	// Display the first 16 tokens for long matches.
 	longMatchDisplayCount := len(sink.longMatches)
+	truncated := false
 	if longMatchDisplayCount > 16 {
 		// Display only up to 16 matches.
 		longMatchDisplayCount = 16
+		truncated = true
 	}
 	for i := 0; i < longMatchDisplayCount; i++ {
-		log.Printf("long match #%d: %s\n", i+1, sink.longMatches[i])
+		log.Printf("[-] Long match #%d: %s\n", i+1, sink.longMatches[i])
 	}
+	if truncated {
+		log.Printf("[ ] %d not displayed", len(sink.longMatches)-longMatchDisplayCount)
+	}
+	log.Println("[ ]")
 }
 
 func (sink *Sink) displayLargeRatingDifferenceMatches() {
 	sink.largeRatingDifferenceMatchLock.RLock()
 	defer sink.largeRatingDifferenceMatchLock.RUnlock()
-	log.Printf("%d large rating difference matches found so far\n", len(sink.largeRatingDifferenceMatches))
+	log.Printf("[o] %d large rating difference matches found so far\n", len(sink.largeRatingDifferenceMatches))
 	largeRatingDifferenceMatchDisplayCount := len(sink.largeRatingDifferenceMatches)
+	truncated := false
 	if largeRatingDifferenceMatchDisplayCount > 16 {
 		// Display only up to 16 matches.
 		largeRatingDifferenceMatchDisplayCount = 16
+		truncated = true
 	}
 	for i := 0; i < largeRatingDifferenceMatchDisplayCount; i++ {
-		log.Printf("large rating difference match #%d: %s\n", i+1, sink.largeRatingDifferenceMatches[i])
+		log.Printf("[-] large rating difference match #%d: %s\n", i+1, sink.largeRatingDifferenceMatches[i])
 	}
+	if truncated {
+		log.Printf("[ ] %d not displayed", len(sink.largeRatingDifferenceMatches)-largeRatingDifferenceMatchDisplayCount)
+	}
+	log.Println("[ ]")
 }

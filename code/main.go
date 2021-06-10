@@ -21,6 +21,8 @@ func main() {
 		client.Run()
 	case "lmfilter":
 		filter.RunLongMatchFilter()
+	case "lrdfilter":
+		filter.RunLargeRatingDifferenceFilter()
 	case "join":
 		join.Run()
 	case "sink":

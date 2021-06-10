@@ -15,8 +15,8 @@ services:
       - rabbit
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - MatchDataPath=/data/matches.csv
-      - PlayerDataPath=/data/match_players.csv
+      - MatchDataPath=/data/matches_test.csv
+      - PlayerDataPath=/data/players_test.csv
       - MatchDataExchange=match_record_fanout
       - MatchDataBatchSize=10000
       - PlayerDataExchange=player_record_fanout
@@ -39,35 +39,51 @@ services:
     networks:
       - testing_net
 
-  long_match_filter_1:
-    container_name: long_match_filter_1
+#  long_match_filter_1:
+#    container_name: long_match_filter_1
+#    image: tp2node:latest
+#    entrypoint: /node lmfilter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=1
+#      - MatchDataExchange=match_record_fanout
+#      - LongMatchFilterInputQueue=lmfilter_input_queue
+#      - AggregationExchange=aggregation_exchange
+#      - LongMatchQueue=long_matches
+#    networks:
+#      - testing_net
+
+#  long_match_filter_2:
+#    container_name: long_match_filter_2
+#    image: tp2node:latest
+#    entrypoint: /node lmfilter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=2
+#      - MatchDataExchange=match_record_fanout
+#      - LongMatchFilterInputQueue=lmfilter_input_queue
+#      - AggregationExchange=aggregation_exchange
+#      - LongMatchQueue=long_matches
+#    networks:
+#      - testing_net
+
+  large_rating_difference_filter_1:
+    container_name: large_rating_difference_filter_1
     image: tp2node:latest
-    entrypoint: /node lmfilter
+    entrypoint: /node lrdfilter
     depends_on:
       - rabbit
     environment:
       - RMQConnectionString=amqp://guest:guest@rabbit:5672/
       - InstanceId=1
-      - MatchDataExchange=match_record_fanout
-      - LongMatchFilterInputQueue=lmfilter_input_queue
+      - JointDataExchange=joint_record_fanout
+      - LargeRatingDifferenceInputQueue=ldf_input_queue
       - AggregationExchange=aggregation_exchange
-      - LongMatchQueue=long_matches
-    networks:
-      - testing_net
-
-  long_match_filter_2:
-    container_name: long_match_filter_2
-    image: tp2node:latest
-    entrypoint: /node lmfilter
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - InstanceId=2
-      - MatchDataExchange=match_record_fanout
-      - LongMatchFilterInputQueue=lmfilter_input_queue
-      - AggregationExchange=aggregation_exchange
-      - LongMatchQueue=long_matches
+      - LargeRatingDifferenceMatchQueue=large_rating_difference_matches
     networks:
       - testing_net
 

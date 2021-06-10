@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"tp2.aba.distros.fi.uba.ar/common/config"
 	"tp2.aba.distros.fi.uba.ar/common/middleware"
@@ -24,6 +25,10 @@ const PlayerDataBatchSizeVarName string = "PlayerDataBatchSize"
 const PlayerDataBatchSizeDefault int = 512
 
 func Run() {
+
+	// Sleep to have the system up before launching the client.
+	time.Sleep(time.Duration(30) * time.Second)
+
 	waitGroup := &sync.WaitGroup{}
 
 	// Launch the match data writer.
@@ -80,8 +85,14 @@ func MatchDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 
 		// Read the file line by line and batch match records.
 		scanner := bufio.NewScanner(file)
+		skippedFirstLine := false
 
 		for scanner.Scan() {
+			// Skip header.
+			if !skippedFirstLine {
+				skippedFirstLine = true
+				continue
+			}
 			// Get current line.
 			line := scanner.Text()
 			// Split line by fields.
@@ -149,8 +160,14 @@ func PlayerDataWriter(waitGroup *sync.WaitGroup, quitChannel <-chan int) {
 
 		// Read the file line by line and batch match records.
 		scanner := bufio.NewScanner(file)
+		skippedFirstLine := false
 
 		for scanner.Scan() {
+			// Skip header.
+			if !skippedFirstLine {
+				skippedFirstLine = true
+				continue
+			}
 			// Get current line.
 			line := scanner.Text()
 			// Split line by fields.

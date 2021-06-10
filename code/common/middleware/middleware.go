@@ -267,6 +267,7 @@ func (consumer *PlayerDataConsumer) Consume(callback func(*PlayerRecordBatch)) e
 		// Launch message reader.
 		go func() {
 			for m := range consumerChannel {
+				log.Println("received player data batch")
 				// Deserialize the batch.
 				if batch, err := DeserializePlayerRecords(m.Body); err == nil {
 					// The batch was deserialized correctly. Have it handled by the callback.
@@ -365,6 +366,7 @@ func (consumer *MatchDataConsumer) Consume(callback func(*MatchRecordBatch)) err
 		// Launch message reader.
 		go func() {
 			for m := range consumerChannel {
+				log.Println("received match data batch")
 				// Deserialize the batch.
 				if batch, err := DeserializeMatchRecords(m.Body); err == nil {
 					// The batch was deserialized correctly. Have it handled by the callback.
@@ -410,7 +412,7 @@ func (exchanger *jointDataExchanger) initialize() error {
 
 // Publisher
 type JointDataPublisher struct {
-	*jointDataExchanger
+	jointDataExchanger
 }
 
 func CreateJointDataPublisher() (*JointDataPublisher, error) {
@@ -498,6 +500,9 @@ const AggregationExchangeDefault string = "aggregation_exchange"
 const LongMatchQueueNameVarName string = "LongMatchQueue"
 const LongMatchQueueNameDefault string = "long_matches"
 
+const LargeRatingDifferenceMatchQueueVarName string = "LargeRatingDifferenceMatchQueue"
+const LargeRatingDifferenceMatchQueueDefault string = "large_rating_difference_matches"
+
 type aggregationDataExchanger struct {
 	Connector
 	exchangeName string
@@ -530,11 +535,19 @@ func CreateAggregationDataPublisher() (*AggregationDataPublisher, error) {
 func (publisher *AggregationDataPublisher) PublishLongMatch(record *SingleTokenRecord) error {
 	// Get the name of the queue.
 	qname := config.GetStringOrDefault(LongMatchQueueNameVarName, LongMatchQueueNameDefault)
+	return publisher.publishThroughQueue(record, qname)
+}
 
-	if serialized, err := record.Serialize(); err != nil {
+func (publisher *AggregationDataPublisher) PublishLargeRatingDifferenceMatch(record *SingleTokenRecord) error {
+	// Get the name of the queue.
+	qname := config.GetStringOrDefault(LargeRatingDifferenceMatchQueueVarName, LargeRatingDifferenceMatchQueueDefault)
+	return publisher.publishThroughQueue(record, qname)
+}
+
+func (publisher *AggregationDataPublisher) publishThroughQueue(serializable Serializable, qname string) error {
+	if serialized, err := serializable.Serialize(); err != nil {
 		return err
 	} else {
-		// Send the record to the exchange through the long match route.
 		return publisher.publishWithRoutingKey(
 			publisher.exchangeName, serialized, qname)
 	}

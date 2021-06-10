@@ -89,7 +89,58 @@ func (filter *LongMatchFilterInstance) longMatchCallback(batch *middleware.Match
 //=================================================================================================
 // Large rating difference
 //-------------------------------------------------------------------------------------------------
-// TODO
+const LargeRatingDifferenceFilterInputQueueVarName string = "LargeRatingDifferenceInputQueue"
+const LargeRatingDifferenceFilterInputQueueDefault string = "ldf_input_queue"
+
+type LargeRatingDifferenceFilterInstance struct {
+	id        int
+	publisher *middleware.AggregationDataPublisher
+}
+
+func RunLargeRatingDifferenceFilter() error {
+	waitGroup := &sync.WaitGroup{}
+	var consumer *middleware.JointDataConsumer = nil
+	var err error = nil
+	// Instantiate a filter object to hold some data.
+	filter := &LargeRatingDifferenceFilterInstance{}
+	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
+	// Get the name of the queue shared by long match filter instances.
+	queueName := config.GetStringOrDefault(
+		LargeRatingDifferenceFilterInputQueueVarName,
+		LargeRatingDifferenceFilterInputQueueDefault)
+	// Initialize consumer.
+	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
+		log.Println("could not create match data consumer")
+		return err
+	}
+	consumer.RegisterOnWaitGroup(waitGroup)
+	// Initialize the publisher to publish results.
+	filter.publisher, err = middleware.CreateAggregationDataPublisher()
+	// Close the consumer and return if the publisher could not be initialized.
+	if err != nil {
+		consumer.Close()
+		return err
+	}
+	// Begin consuming match data.
+	log.Println("beginning joint data consumption")
+	go consumer.Consume(filter.largeRatingDifferenceCallback)
+
+	// Wait for a quit signal.
+	sigchannel := make(chan os.Signal, 1)
+	signal.Notify(sigchannel, syscall.SIGINT, syscall.SIGTERM)
+	<-sigchannel
+
+	// Stop the consumer.
+	consumer.Stop()
+	waitGroup.Wait()
+	return nil
+}
+
+func (filter *LargeRatingDifferenceFilterInstance) largeRatingDifferenceCallback(
+	batch *middleware.JointMatchRecordBatch) {
+
+	log.Println("Received joint match record")
+}
 
 //=================================================================================================
 // Civilization victories

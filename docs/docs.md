@@ -1,3 +1,7 @@
+> **Indicaciones para la ejecución**: antes de ejecutar el sistema hay que copiar los archivos matches.csv y match_players.csv al directorio data; los archivos no fueron subidos al repositorio por su tamaño.
+
+
+
 # TP2: Middleware y Coordinación de Procesos
 
 *75.74, Sistemas Distribuidos, FIUBA.*

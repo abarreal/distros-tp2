@@ -245,7 +245,7 @@ En un esquema productivo, se esperaría que el sistema se encuentre totalmente f
 #### Determinación de una partida larga
 
 1. El cliente lee una línea del archivo de partidas. Supongamos que se trata efectivamente de una partida larga (duración mayor a 2 horas) que cumple adicionalmente con todos los requisitos para calificar como interesante para el flujo 1.
-2. El cliente construye un objeto de tipo MatchRecorden base a los datos levantados del archivo. Para simplificar la construcción y encapsular la estructura del registro, el middleware ofrece funcionalidad que abstrae el proceso.
+2. El cliente construye un objeto de tipo MatchRecord en base a los datos levantados del archivo. Para simplificar la construcción y encapsular la estructura del registro, el middleware ofrece funcionalidad que abstrae el proceso.
 3. El cliente envía el registro al MatchRecordFanout, donde se hace disponible a múltiples interesados.
 4. Uno de los interesados es el Long Match Filter, que obtiene una copia del registro. Estrictamente hablando, pueden existir múltiples instancias del filtro y solo una obtendrá la copia dentro del conjunto de los Long Match Filters. Los demás componentes interesados recibirán no obstante sus propias copias, que podrían o no ser a su vez asignadas a uno entre varios workers.
 5. El Long Match Filter determina si la partida cumple con los requisitos para ser de interés acorde al flujo de partidas largas. De serlo, el filtro construirá un objeto de tipo SingleTokenRecord, utilizado para realizar notificaciones relacionadas a un token particular. En este caso, se trata de una notificación sobre una partida larga; el token que guarda el registro es efectivamente el de la partida.
@@ -276,3 +276,12 @@ En un esquema productivo, se esperaría que el sistema se encuentre totalmente f
 2. El filtro o uno de los filtros Top 5 Filter recibe el registro y determina si cumple con las condiciones para ser de interés al ya mencionado flujo. Determinando que es el caso, construye un registro de tipo CivilizationInfoRecord por cada jugador pro en la partida, indicando la civilización que usó, y los junta en un batch. El batch es enviado a través de una cola.
 3. El nodo Sink guarda contadores en memoria para cada civilización, inicializados en forma lazy, que indican la cantidad de veces que cada civilización fue usada por pro players en partidas por equipo en el mapa islands. En base a los registros tipo CivilizationInfoRecord que recibe a través de la cola asociada al mencionado flujo, aumenta en uno (para cada registro) el contador correspondiente a la civilización indicada en el registro. Como en los casos anteriores, es posible contar con múltiples nodos Sink que guarden contadores independientes que eventualmente sean agregados cuando haya que mostrar resultados o a intervalos periódicos con consistencia eventual.
 4. Eventualmente el nodo Sink genera estadísticas. En este momento determinará el top 5 de civilizaciones más usadas en base a los contadores que guarda en memoria, y mostrará los resultados obtenidos.
+
+
+
+## Defectos conocidos
+
+* En la vista de procesos se propone la posibilidad de implementar múltiples procesos Sink. En el sistema demostrativo se utiliza uno solo. De implementarse varios, no obstante, cada uno almacenaría solo un subconjunto de los datos (e.g. contadores para cada civilización, IDs de partidas interesantes), con lo cual sería necesario implementar un paso de agregación adicional, probablemente mediante una cola para poder desacoplar los múltiples procesos Sink en nodos distintos.
+* El proceso Join es uno solo, lo cual reduce las posibilidades de escalamiento. Esto podría resolverse teniendo múltiples instancias, cada una encargada de un subconjunto de partidas. La partición puede hacerse sin dificultad usando el token de partida.
+* Los resultados obtenidos no parecerían ser acordes a los esperados. También se observó una excepción durante una de las ejecuciones del sistema demostrativo, con lo cuál existe definitivamente algún error que requiere corrección.
+

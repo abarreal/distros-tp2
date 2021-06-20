@@ -31,19 +31,21 @@ func RunLongMatchFilter() error {
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
 	// All instances of this filter will be listening on the same queue.
 	queueName := LongMatchFilterInputQueue
+
 	// Initialize consumer.
 	if consumer, err = middleware.CreateMatchDataConsumer(queueName); err != nil {
 		log.Println("could not create match data consumer")
 		return err
 	}
+	defer consumer.Close()
 	consumer.RegisterOnWaitGroup(waitGroup)
+
 	// Initialize the publisher to publish results.
-	filter.publisher, err = middleware.CreateAggregationDataPublisher()
-	// Close the consumer and return if the publisher could not be initialized.
-	if err != nil {
-		consumer.Close()
+	if filter.publisher, err = middleware.CreateAggregationDataPublisher(); err != nil {
 		return err
 	}
+	defer filter.publisher.Close()
+
 	// Begin consuming match data.
 	log.Println("beginning match data consumption")
 	go consumer.Consume(filter.longMatchCallback)
@@ -103,19 +105,21 @@ func RunLargeRatingDifferenceFilter() error {
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
 	// All instances of this filter will be listening on the same queue.
 	queueName := LargeRatingDifferenceFilterInputQueue
+
 	// Initialize consumer.
 	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
 		log.Println("could not create match data consumer")
 		return err
 	}
+	defer consumer.Close()
 	consumer.RegisterOnWaitGroup(waitGroup)
+
 	// Initialize the publisher to publish results.
-	filter.publisher, err = middleware.CreateAggregationDataPublisher()
-	// Close the consumer and return if the publisher could not be initialized.
-	if err != nil {
-		consumer.Close()
+	if filter.publisher, err = middleware.CreateAggregationDataPublisher(); err != nil {
 		return err
 	}
+	defer filter.publisher.Close()
+
 	// Begin consuming match data.
 	log.Println("beginning joint data consumption")
 	go consumer.Consume(filter.largeRatingDifferenceCallback)
@@ -182,19 +186,21 @@ func RunCivilizationUsageCountFilter() error {
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
 	// All instances of this filter will be listening on the same queue.
 	queueName := CivilizationUsageCountInputQueue
+
 	// Initialize consumer.
 	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
 		log.Println("could not create joint data consumer")
 		return err
 	}
+	defer consumer.Close()
 	consumer.RegisterOnWaitGroup(waitGroup)
+
 	// Initialize the publisher to publish results.
-	filter.publisher, err = middleware.CreateAggregationDataPublisher()
-	// Close the consumer and return if the publisher could not be initialized.
-	if err != nil {
-		consumer.Close()
+	if filter.publisher, err = middleware.CreateAggregationDataPublisher(); err != nil {
 		return err
 	}
+	defer filter.publisher.Close()
+
 	// Begin consuming match data.
 	log.Println("beginning joint data consumption")
 	go consumer.Consume(filter.jointDataCallbackForUsageCount)
@@ -258,19 +264,21 @@ func RunCivilizationVictoryDataFilter() error {
 	filter.id, _ = config.GetIntOrDefault("InstanceId", 0)
 	// All instances of this filter will be listening on the same queue.
 	queueName := CivilizationVictoryDataFilterInputQueue
+
 	// Initialize consumer.
 	if consumer, err = middleware.CreateJointDataConsumer(queueName); err != nil {
 		log.Println("could not create joint data consumer")
 		return err
 	}
+	defer consumer.Close()
 	consumer.RegisterOnWaitGroup(waitGroup)
+
 	// Initialize the publisher to publish results.
-	filter.publisher, err = middleware.CreateAggregationDataPublisher()
-	// Close the consumer and return if the publisher could not be initialized.
-	if err != nil {
-		consumer.Close()
+	if filter.publisher, err = middleware.CreateAggregationDataPublisher(); err != nil {
 		return err
 	}
+	defer filter.publisher.Close()
+
 	// Begin consuming match data.
 	log.Println("beginning joint data consumption")
 	go consumer.Consume(filter.jointDataCallbackForVictoryStats)

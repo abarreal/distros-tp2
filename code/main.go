@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"tp2.aba.distros.fi.uba.ar/node/client"
+	"tp2.aba.distros.fi.uba.ar/node/collector"
 	"tp2.aba.distros.fi.uba.ar/node/filter"
 	"tp2.aba.distros.fi.uba.ar/node/join"
 	"tp2.aba.distros.fi.uba.ar/node/sink"
@@ -29,6 +30,10 @@ func main() {
 		filter.RunCivilizationVictoryDataFilter()
 	case "join":
 		join.Run()
+	case "victorydatacollector":
+		collector.RunCivilizationVictoryDataCollector()
+	case "usagedatacollector":
+		collector.RunCivilizationUsageDataCollector()
 	case "sink":
 		sink.Run()
 	default:

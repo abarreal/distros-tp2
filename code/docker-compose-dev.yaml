@@ -95,6 +95,28 @@ services:
     networks:
       - testing_net
 
+  victory_data_collector:
+    container_name: victory_data_collector
+    image: tp2node:latest
+    entrypoint: /node victorydatacollector
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+    networks:
+      - testing_net
+    
+  usage_data_collector:
+    container_name: usage_data_collector
+    image: tp2node:latest
+    entrypoint: /node usagedatacollector
+    depends_on:
+      - rabbit
+    environment:
+      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+    networks:
+      - testing_net
+
   sink:
     container_name: sink
     image: tp2node:latest

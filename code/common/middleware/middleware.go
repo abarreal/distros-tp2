@@ -667,7 +667,7 @@ type CivilizationUsageAggregationConsumer struct {
 	abstractConsumer
 }
 
-func CreateCivilizationusageAggregationConsumer() (*CivilizationUsageAggregationConsumer, error) {
+func CreateCivilizationUsageAggregationConsumer() (*CivilizationUsageAggregationConsumer, error) {
 	// Instantiate the data consumer.
 	consumer := &CivilizationUsageAggregationConsumer{}
 	// Connect and declare the exchange.

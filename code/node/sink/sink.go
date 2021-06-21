@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -21,77 +20,71 @@ type CivilizationUsageRecord struct {
 }
 
 type Sink struct {
-	longMatchLock                       *sync.RWMutex
-	longMatches                         []string
-	largeRatingDifferenceMatchLock      *sync.RWMutex
-	largeRatingDifferenceMatches        []string
-	civilizationUsageCountInIslandsLock *sync.RWMutex
-	civilizationUsageCountInIslands     map[string]*CivilizationUsageRecord
-	civilizationVictoryStatsInArenaLock *sync.RWMutex
-	civilizationVictoryStatsInArena     map[string]([]int)
+	longMatchDataConsumer *middleware.LongMatchDataConsumer
+	longMatchLock         *sync.RWMutex
+	longMatches           []string
+
+	largeRatingDifferenceConsumer  *middleware.LargeRatingDifferenceMatchDataConsumer
+	largeRatingDifferenceMatchLock *sync.RWMutex
+	largeRatingDifferenceMatches   []string
+
+	usageCountStatisticsConsumer *middleware.CivilizationUsageAggregationConsumer
+	usageCountStatistics         *middleware.CivilizationCounterRecord
+	usageCountStatisticsLock     *sync.RWMutex
+
+	victoryRateStatisticsConsumer *middleware.CivilizationVictoryRateConsumer
+	victoryRateStatistics         *middleware.CivilizationFloatRecord
+	victoryRateStatisticsLock     *sync.RWMutex
 }
 
 func Run() {
+	var err error
+
 	// Instantiate the sink object itself.
 	sink := &Sink{}
+
 	sink.longMatches = make([]string, 0)
-	sink.civilizationUsageCountInIslands = make(map[string]*CivilizationUsageRecord)
-	sink.civilizationVictoryStatsInArena = make(map[string]([]int))
 	sink.longMatchLock = &sync.RWMutex{}
+
+	sink.largeRatingDifferenceMatches = make([]string, 0)
 	sink.largeRatingDifferenceMatchLock = &sync.RWMutex{}
-	sink.civilizationUsageCountInIslandsLock = &sync.RWMutex{}
-	sink.civilizationVictoryStatsInArenaLock = &sync.RWMutex{}
+
+	sink.usageCountStatistics = nil
+	sink.usageCountStatisticsLock = &sync.RWMutex{}
+
+	sink.victoryRateStatistics = nil
+	sink.victoryRateStatisticsLock = &sync.RWMutex{}
 
 	// Create a wait group for all consumers.
 	waitGroup := &sync.WaitGroup{}
 
 	// Initialize a long match data consumer.
-	lmconsumer, err := middleware.CreateLongMatchDataConsumer()
-
-	if err != nil {
+	if sink.longMatchDataConsumer, err = sink.initializeLongMatchDataConsumer(waitGroup); err != nil {
 		log.Println("could not create long match data consumer")
-	} else {
-		// Register the consumer on the wait group.
-		lmconsumer.RegisterOnWaitGroup(waitGroup)
-		// Launch consumption of long match data in a separate goroutine.
-		log.Println("launching long match data consumer")
-		go lmconsumer.Consume(sink.handleLongMatch)
+		return
 	}
+	defer sink.longMatchDataConsumer.Close()
 
 	// Initialize consumer to consume large rating difference matches.
-	lrdconsumer, err := middleware.CreateLargeRatingDifferenceMatchDataConsumer()
-
-	if err != nil {
+	if sink.largeRatingDifferenceConsumer, err = sink.initializeLargeRatingDifferenceConsumer(waitGroup); err != nil {
 		log.Println("could not create large rating difference match data consumer")
-	} else {
-		// Register on the wait group.
-		lrdconsumer.RegisterOnWaitGroup(waitGroup)
-		// Lauch consumption in a separate goroutine.
-		log.Println("launching large rating difference match data consumer")
-		go lrdconsumer.Consume(sink.handleLargeRatingDifferenceMatch)
+		return
 	}
+	defer sink.largeRatingDifferenceConsumer.Close()
 
-	// Initialize consumer to consume civilization usage.
-	islandsCivConsumer, err := middleware.CreateIslandsCivilizationUsageDataConsumer()
-
-	if err != nil {
-		log.Println("could not create islands civilization usage data consumer")
-	} else {
-		islandsCivConsumer.RegisterOnWaitGroup(waitGroup)
-		log.Println("launching civilization usage data consumer for map islands")
-		go islandsCivConsumer.Consume(sink.handleIslandsCivilizationUsageData)
+	// Initialize consumer to consume civilization victory rate updates.
+	if sink.victoryRateStatisticsConsumer, err = sink.initializeVictoryRateStatisticsConsumer(waitGroup); err != nil {
+		log.Println("could not create victory rate statistics consumer")
+		return
 	}
+	defer sink.victoryRateStatisticsConsumer.Close()
 
-	// Initialize consumer to consume civilization victory statistics.
-	arenaCivVictoryConsumer, err := middleware.CreateArenaCivilizationVictoryDataConsumer()
-
-	if err != nil {
-		log.Println("could not create arena civilization victory data consumer")
-	} else {
-		arenaCivVictoryConsumer.RegisterOnWaitGroup(waitGroup)
-		log.Println("launching civilization victory data consumer for map arena")
-		go arenaCivVictoryConsumer.Consume(sink.handleArenaCivilizationVictoryData)
+	// Initialize consumer to consume civilization usage count updates.
+	if sink.usageCountStatisticsConsumer, err = sink.initializeUsageCountStatisticsConsumer(waitGroup); err != nil {
+		log.Println("could not create usage count statistics consumer")
+		return
 	}
+	defer sink.usageCountStatisticsConsumer.Close()
 
 	// Initialize periodic statistics reports.
 	statisticsQuitChannel := make(chan int, 1)
@@ -106,12 +99,36 @@ func Run() {
 	// Stop the statistics worker.
 	statisticsQuitChannel <- 0
 	// Stop all consumers.
-	if lmconsumer != nil {
-		lmconsumer.Stop()
-	}
+	sink.longMatchDataConsumer.Stop()
+	sink.largeRatingDifferenceConsumer.Stop()
+	sink.victoryRateStatisticsConsumer.Stop()
+	sink.usageCountStatisticsConsumer.Stop()
 
 	// Wait for all consumers to finish.
 	waitGroup.Wait()
+}
+
+//=================================================================================================
+// Long match data consumer
+//-------------------------------------------------------------------------------------------------
+func (sink *Sink) initializeLongMatchDataConsumer(waitGroup *sync.WaitGroup) (
+	*middleware.LongMatchDataConsumer, error) {
+
+	// Instantiate the consumer.
+	lmconsumer, err := middleware.CreateLongMatchDataConsumer()
+
+	if err != nil {
+		log.Println("could not create long match data consumer")
+		return nil, err
+	} else {
+		// Register the consumer on the wait group.
+		lmconsumer.RegisterOnWaitGroup(waitGroup)
+		// Launch consumption of long match data in a separate goroutine.
+		log.Println("launching long match data consumer")
+		go lmconsumer.Consume(sink.handleLongMatch)
+	}
+
+	return lmconsumer, nil
 }
 
 func (sink *Sink) handleLongMatch(record *middleware.SingleTokenRecord) {
@@ -121,46 +138,86 @@ func (sink *Sink) handleLongMatch(record *middleware.SingleTokenRecord) {
 	sink.longMatchLock.Unlock()
 }
 
+//=================================================================================================
+// Large rating difference data consumer
+//-------------------------------------------------------------------------------------------------
+func (sink *Sink) initializeLargeRatingDifferenceConsumer(waitGroup *sync.WaitGroup) (
+	*middleware.LargeRatingDifferenceMatchDataConsumer, error) {
+
+	lrdconsumer, err := middleware.CreateLargeRatingDifferenceMatchDataConsumer()
+
+	if err != nil {
+		log.Println("could not create large rating difference match data consumer")
+		return nil, err
+	} else {
+		// Register on the wait group.
+		lrdconsumer.RegisterOnWaitGroup(waitGroup)
+		// Lauch consumption in a separate goroutine.
+		log.Println("launching large rating difference match data consumer")
+		go lrdconsumer.Consume(sink.handleLargeRatingDifferenceMatch)
+	}
+
+	return lrdconsumer, nil
+}
+
 func (sink *Sink) handleLargeRatingDifferenceMatch(record *middleware.SingleTokenRecord) {
 	sink.largeRatingDifferenceMatchLock.Lock()
 	sink.largeRatingDifferenceMatches = append(sink.largeRatingDifferenceMatches, record.Token)
 	sink.largeRatingDifferenceMatchLock.Unlock()
 }
 
-func (sink *Sink) handleIslandsCivilizationUsageData(batch *middleware.CivilizationInfoRecordBatch) {
-	// We have to store the amount of times each civilization was used in islands.
-	for _, record := range batch.Records {
-		sink.civilizationUsageCountInIslandsLock.Lock()
-		current, found := sink.civilizationUsageCountInIslands[record.CivilizationName]
-		// Initialize counter if not found.
-		if !found {
-			current = &CivilizationUsageRecord{record.CivilizationName, 0}
-			sink.civilizationUsageCountInIslands[record.CivilizationName] = current
-		}
-		// Increase counter by one in any case.
-		current.UsageCount++
-		sink.civilizationUsageCountInIslandsLock.Unlock()
+//=================================================================================================
+// Victory rate statistics consumer
+//-------------------------------------------------------------------------------------------------
+func (sink *Sink) initializeVictoryRateStatisticsConsumer(waitGroup *sync.WaitGroup) (
+	*middleware.CivilizationVictoryRateConsumer, error) {
+
+	consumer, err := middleware.CreateCivilizationVictoryRateConsumer()
+
+	if err != nil {
+		log.Println("could not create civilization victory rate consumer")
+		return nil, err
+	} else {
+		consumer.RegisterOnWaitGroup(waitGroup)
+		log.Println("launching civilization victory rate consumer")
+		go consumer.Consume(sink.handleCivilizationVictoryRateUpdates)
 	}
+
+	return consumer, nil
 }
 
-func (sink *Sink) handleArenaCivilizationVictoryData(batch *middleware.CivilizationInfoRecordBatch) {
-	// We have to store the amount of victories and loses for each civilization.
-	for _, record := range batch.Records {
-		sink.civilizationVictoryStatsInArenaLock.Lock()
-		// Get current stats and initialize if none.
-		current, found := sink.civilizationVictoryStatsInArena[record.CivilizationName]
-		if !found {
-			// Create an array of length 2 to hold victories in the first element and defeats in the second.
-			current = []int{0, 0}
-			sink.civilizationVictoryStatsInArena[record.CivilizationName] = current
-		}
-		if record.IndicatesVictory() {
-			current[0]++
-		} else if record.IndicatesDefeat() {
-			current[1]++
-		}
-		sink.civilizationVictoryStatsInArenaLock.Unlock()
+func (sink *Sink) handleCivilizationVictoryRateUpdates(record *middleware.CivilizationFloatRecord) {
+	// Update known statistics with the newly received record.
+	sink.victoryRateStatisticsLock.Lock()
+	defer sink.victoryRateStatisticsLock.Unlock()
+	sink.victoryRateStatistics = record
+}
+
+//=================================================================================================
+// Usage count statistics consumer
+//-------------------------------------------------------------------------------------------------
+func (sink *Sink) initializeUsageCountStatisticsConsumer(waitGroup *sync.WaitGroup) (
+	*middleware.CivilizationUsageAggregationConsumer, error) {
+
+	consumer, err := middleware.CreateCivilizationUsageAggregationConsumer()
+
+	if err != nil {
+		log.Println("could not create civilization usage aggregation consumer")
+		return nil, err
+	} else {
+		consumer.RegisterOnWaitGroup(waitGroup)
+		log.Println("launching civilization usage aggregation consumer")
+		go consumer.Consume(sink.handleCivilizationUsageUpdates)
 	}
+
+	return consumer, nil
+}
+
+func (sink *Sink) handleCivilizationUsageUpdates(record *middleware.CivilizationCounterRecord) {
+	// Update known statistics with the newly received record.
+	sink.usageCountStatisticsLock.Lock()
+	defer sink.usageCountStatisticsLock.Unlock()
+	sink.usageCountStatistics = record
 }
 
 //=================================================================================================
@@ -188,58 +245,14 @@ func (sink *Sink) runPeriodicReport(waitGroup *sync.WaitGroup, quitChannel <-cha
 func (sink *Sink) showStats() {
 	log.Println("[ ] Displaying periodic statistics report")
 	log.Println("[ ]")
-	// Check victory rates by civilization in arena.
-	sink.displayCivilizationVictoryRates()
-	// Check civilization usage statistics in islands.
-	sink.displayCivilizationUsageStatistics()
 	// Check long match data.
 	sink.displayLongMatches()
 	// Check large rating difference matches.
 	sink.displayLargeRatingDifferenceMatches()
-}
-
-func (sink *Sink) displayCivilizationVictoryRates() {
-	sink.civilizationVictoryStatsInArenaLock.Lock()
-	defer sink.civilizationVictoryStatsInArenaLock.Unlock()
-	log.Println("[o] Victory rate by civilization in non-mirror 1v1 matches, in arena:")
-	for cname, data := range sink.civilizationVictoryStatsInArena {
-		victories := data[0]
-		total := victories + data[1]
-		log.Printf("[-] %s : %.2f", cname, float32(victories)/(float32(total)))
-	}
-	log.Println("[ ]")
-}
-
-func (sink *Sink) displayCivilizationUsageStatistics() {
-	sink.civilizationUsageCountInIslandsLock.Lock()
-	defer sink.civilizationUsageCountInIslandsLock.Unlock()
-	log.Println("[o] top 5 most used civilizations by pro players in team matches, in islands:")
-	// Copy map data into an array for sorting.
-	civUsageRecords := make([]*CivilizationUsageRecord, 0)
-	for _, record := range sink.civilizationUsageCountInIslands {
-		civUsageRecords = append(civUsageRecords, record)
-	}
-	if len(civUsageRecords) == 0 {
-		log.Println("[x] no data yet")
-	} else if len(civUsageRecords) == 1 {
-		only := civUsageRecords[0]
-		log.Printf("[-] #%d : %s, used %d times\n", 1, only.CivilizationName, only.UsageCount)
-	} else {
-		// Sort by usage count.
-		sort.Slice(civUsageRecords, func(i, j int) bool {
-			return civUsageRecords[i].UsageCount < civUsageRecords[j].UsageCount
-		})
-		shown := 5
-		if len(civUsageRecords) < shown {
-			shown = len(civUsageRecords)
-		}
-		// Show top of those that we have.
-		for i := 0; i < shown; i++ {
-			current := civUsageRecords[i]
-			log.Printf("[-] #%d : %s, used %d times\n", i+1, current.CivilizationName, current.UsageCount)
-		}
-	}
-	log.Println("[ ]")
+	// Display victory rates.
+	sink.displayVictoryRates()
+	// Display usage count.
+	sink.displayUsageCounters()
 }
 
 func (sink *Sink) displayLongMatches() {
@@ -280,5 +293,51 @@ func (sink *Sink) displayLargeRatingDifferenceMatches() {
 	if truncated {
 		log.Printf("[ ] %d not displayed", len(sink.largeRatingDifferenceMatches)-largeRatingDifferenceMatchDisplayCount)
 	}
+	log.Println("[ ]")
+}
+
+func (sink *Sink) displayVictoryRates() {
+	sink.victoryRateStatisticsLock.RLock()
+	defer sink.victoryRateStatisticsLock.RUnlock()
+
+	if sink.victoryRateStatistics == nil {
+		return
+	}
+
+	// Display statistics.
+	log.Println("[o] Victory rate by civilization in non-mirror 1v1 matches, in arena:")
+
+	stats := sink.victoryRateStatistics
+	names := stats.CivilizationName
+	rates := stats.CivilizationFloat
+
+	for i, name := range names {
+		rate := rates[i]
+		log.Printf("[-] %s : %.2f", name, rate)
+	}
+
+	log.Println("[ ]")
+}
+
+func (sink *Sink) displayUsageCounters() {
+	sink.usageCountStatisticsLock.RLock()
+	defer sink.usageCountStatisticsLock.RUnlock()
+
+	if sink.usageCountStatistics == nil {
+		return
+	}
+
+	// Display usage counters for top 5 most used civilizations.
+	log.Println("[o] top 5 most used civilizations by pro players in team matches, in islands:")
+
+	stats := sink.usageCountStatistics
+	names := stats.CivilizationName
+	count := stats.CivilizationCounter
+
+	for i, name := range names {
+		currentCount := count[i]
+		log.Printf("[-] #%d : %s, used %d times\n", i+1, name, currentCount)
+	}
+
 	log.Println("[ ]")
 }

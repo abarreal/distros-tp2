@@ -444,6 +444,12 @@ const Top5CivilizationsQueueDefault string = "top5_civilizations"
 const CivilizationVictoryDataQueueVarName string = "CivilizationVictoryDataQueue"
 const CivilizationVictoryDataQueueDefault string = "civilization_victory_data"
 
+const CivilizationUsageAggregationQueueVarName string = "CivilizationUsageAggregationQueue"
+const CivilizationUsageAggregationQueueDefault string = "civilization_usage_aggregation"
+
+const CivilizationVictoryRateQueueVarName string = "CivilizationVictoryRateQueue"
+const CivilizationVictoryRateQueueDefault string = "civilization_victory_rate_queue"
+
 type aggregationDataExchanger struct {
 	Connector
 	exchangeName string
@@ -497,6 +503,20 @@ func (publisher *AggregationDataPublisher) PublishCivilizationPerformanceData(ba
 		CivilizationVictoryDataQueueVarName,
 		CivilizationVictoryDataQueueDefault)
 	return publisher.publishThroughQueue(batch, qname)
+}
+
+func (publisher *AggregationDataPublisher) PublishCivilizationUsageAggregation(data *CivilizationCounterRecord) error {
+	qname := config.GetStringOrDefault(
+		CivilizationUsageAggregationQueueVarName,
+		CivilizationUsageAggregationQueueDefault)
+	return publisher.publishThroughQueue(data, qname)
+}
+
+func (publisher *AggregationDataPublisher) PublishCivilizationVictoryRates(data *CivilizationFloatRecord) error {
+	qname := config.GetStringOrDefault(
+		CivilizationVictoryRateQueueVarName,
+		CivilizationVictoryRateQueueDefault)
+	return publisher.publishThroughQueue(data, qname)
 }
 
 func (publisher *AggregationDataPublisher) publishThroughQueue(serializable Serializable, qname string) error {
@@ -640,6 +660,88 @@ func (consumer *CivilizationInfoRecordConsumer) Consume(callback func(*Civilizat
 }
 
 //-------------------------------------------------------------------------------------------------
+// Civilization usage aggregation consumer
+//-------------------------------------------------------------------------------------------------
+type CivilizationUsageAggregationConsumer struct {
+	aggregationDataExchanger
+	abstractConsumer
+}
+
+func CreateCivilizationusageAggregationConsumer() (*CivilizationUsageAggregationConsumer, error) {
+	// Instantiate the data consumer.
+	consumer := &CivilizationUsageAggregationConsumer{}
+	// Connect and declare the exchange.
+	if err := consumer.initialize(); err != nil {
+		return nil, err
+	} else {
+		// Get the name of the queue from config.
+		consumer.queueName = config.GetStringOrDefault(
+			CivilizationUsageAggregationQueueVarName,
+			CivilizationUsageAggregationQueueDefault)
+		consumer.joinQueue(consumer.queueName)
+		consumer.bindQueueWithRoutingKey(
+			consumer.queueName, consumer.exchangeName, consumer.queueName)
+		return consumer, nil
+	}
+}
+
+func (consumer *CivilizationUsageAggregationConsumer) Consume(
+	callback func(*CivilizationCounterRecord)) error {
+
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if record, err := DeserializeCivilizationCounterRecord(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(record)
+		} else {
+			log.Println("could not deserialize record")
+		}
+	})
+	return nil
+}
+
+//-------------------------------------------------------------------------------------------------
+// Civilization victory rate consumer
+//-------------------------------------------------------------------------------------------------
+type CivilizationVictoryRateConsumer struct {
+	aggregationDataExchanger
+	abstractConsumer
+}
+
+func CreateCivilizationVictoryRateConsumer() (*CivilizationVictoryRateConsumer, error) {
+	// Instantiate the data consumer.
+	consumer := &CivilizationVictoryRateConsumer{}
+	// Connect and declare the exchange.
+	if err := consumer.initialize(); err != nil {
+		return nil, err
+	} else {
+		// Get the name of the queue from config.
+		consumer.queueName = config.GetStringOrDefault(
+			CivilizationVictoryRateQueueVarName,
+			CivilizationVictoryRateQueueDefault)
+		consumer.joinQueue(consumer.queueName)
+		consumer.bindQueueWithRoutingKey(
+			consumer.queueName, consumer.exchangeName, consumer.queueName)
+		return consumer, nil
+	}
+}
+
+func (consumer *CivilizationVictoryRateConsumer) Consume(
+	callback func(*CivilizationFloatRecord)) error {
+
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if record, err := DeserializeCivilizationFloatRecord(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(record)
+		} else {
+			log.Println("could not deserialize record")
+		}
+	})
+	return nil
+}
+
+//=================================================================================================
 // Generic consumer
 //-------------------------------------------------------------------------------------------------
 

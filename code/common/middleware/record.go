@@ -414,3 +414,67 @@ func DeserializeCivilizationInfoRecords(data []byte) (*CivilizationInfoRecordBat
 		return &record, nil
 	}
 }
+
+//=================================================================================================
+// Statistics
+//-------------------------------------------------------------------------------------------------
+
+// A record to send a list of civilization names, each associated with a counter.
+// Use, for example, to send civilization usage count.
+type CivilizationCounterRecord struct {
+	CivilizationName    []string `json:"civ_name"`
+	CivilizationCounter []int    `json:"civ_counter"`
+}
+
+func CreateCivilizationCounterRecord(names []string, counters []int) *CivilizationCounterRecord {
+	// Define which list is shorter. They should typically be of the same length.
+	shortestLength := min(len(names), len(counters))
+	return &CivilizationCounterRecord{names[:shortestLength], counters[:shortestLength]}
+}
+
+func (record *CivilizationCounterRecord) Serialize() ([]byte, error) {
+	return json.Marshal(record)
+}
+
+func DeserializeCivilizationCounterRecord(data []byte) (*CivilizationCounterRecord, error) {
+	var record CivilizationCounterRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, err
+	} else {
+		return &record, nil
+	}
+}
+
+// A record to communicate a list of civilization names, each associated with a float.
+// Use, for example, to communicate victory rates for each civilization.
+type CivilizationFloatRecord struct {
+	CivilizationName  []string  `json:"civ_name"`
+	CivilizationFloat []float32 `json:"civ_float"`
+}
+
+func CreateCivilizationFloatRecord(names []string, numbers []float32) *CivilizationFloatRecord {
+	// Define which list is shorter. They should typically be of the same length.
+	shortestLength := min(len(names), len(numbers))
+	return &CivilizationFloatRecord{names[:shortestLength], numbers[:shortestLength]}
+}
+
+func (record *CivilizationFloatRecord) Serialize() ([]byte, error) {
+	return json.Marshal(record)
+}
+
+func DeserializeCivilizationFloatRecord(data []byte) (*CivilizationFloatRecord, error) {
+	var record CivilizationFloatRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, err
+	} else {
+		return &record, nil
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
+}

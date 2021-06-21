@@ -13,6 +13,10 @@ import (
 //=================================================================================================
 // General
 //-------------------------------------------------------------------------------------------------
+type channelConsumer interface {
+	consumerChannel(queueName string) (<-chan amqp.Delivery, error)
+}
+
 type Connector struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
@@ -233,10 +237,8 @@ func (publisher *PlayerDataPublisher) PublishPlayerData(records *PlayerRecordBat
 
 // Consumer
 type PlayerDataConsumer struct {
+	abstractConsumer
 	playerDataExchanger
-	queueName string
-	quit      chan int
-	waitGroup *sync.WaitGroup
 }
 
 func CreatePlayerDataConsumer(queueName string) (*PlayerDataConsumer, error) {
@@ -254,36 +256,18 @@ func CreatePlayerDataConsumer(queueName string) (*PlayerDataConsumer, error) {
 	}
 }
 
-func (consumer *PlayerDataConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
-	consumer.waitGroup = waitGroup
-	consumer.waitGroup.Add(1)
-}
-
 // Blocks waiting for incoming player records. The given callback will be called for each record.
 func (consumer *PlayerDataConsumer) Consume(callback func(*PlayerRecordBatch)) error {
-	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
-		return err
-	} else {
-		// Launch message reader.
-		go func() {
-			for m := range consumerChannel {
-				// Deserialize the batch.
-				if batch, err := DeserializePlayerRecords(m.Body); err == nil {
-					// The batch was deserialized correctly. Have it handled by the callback.
-					callback(batch)
-				}
-			}
-		}()
-		// Wait for an incoming quit message.
-		<-consumer.quit
-		// Send finalization notification.
-		consumer.waitGroup.Done()
-		return nil
-	}
-}
-
-func (consumer *PlayerDataConsumer) Stop() {
-	consumer.quit <- 0
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if batch, err := DeserializePlayerRecords(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(batch)
+		} else {
+			log.Println("could not deserialize batch")
+		}
+	})
+	return nil
 }
 
 //=================================================================================================
@@ -332,10 +316,8 @@ func (publisher *MatchDataPublisher) PublishMatchData(records *MatchRecordBatch)
 
 // Consumer
 type MatchDataConsumer struct {
+	abstractConsumer
 	matchDataExchanger
-	queueName string
-	quit      chan int
-	waitGroup *sync.WaitGroup
 }
 
 func CreateMatchDataConsumer(queueName string) (*MatchDataConsumer, error) {
@@ -352,40 +334,18 @@ func CreateMatchDataConsumer(queueName string) (*MatchDataConsumer, error) {
 	}
 }
 
-func (consumer *MatchDataConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
-	consumer.waitGroup = waitGroup
-	consumer.waitGroup.Add(1)
-}
-
 // Blocks waiting for incoming player records. The given callback will be called for each record.
 func (consumer *MatchDataConsumer) Consume(callback func(*MatchRecordBatch)) error {
-	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
-		return err
-	} else {
-		// Launch message reader.
-		go func() {
-			for m := range consumerChannel {
-				// Deserialize the batch.
-				if batch, err := DeserializeMatchRecords(m.Body); err == nil {
-					// The batch was deserialized correctly. Have it handled by the callback.
-					callback(batch)
-				}
-			}
-		}()
-		// Wait for an incoming quit message.
-		<-consumer.quit
-		// Close all resources.
-		consumer.Close()
-		// Send finalization notification.
-		if consumer.waitGroup != nil {
-			consumer.waitGroup.Done()
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if batch, err := DeserializeMatchRecords(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(batch)
+		} else {
+			log.Println("could not deserialize batch")
 		}
-		return nil
-	}
-}
-
-func (consumer *MatchDataConsumer) Stop() {
-	consumer.quit <- 0
+	})
+	return nil
 }
 
 //=================================================================================================
@@ -434,10 +394,8 @@ func (publisher *JointDataPublisher) PublishJointData(records *JointMatchRecordB
 
 // Consumer
 type JointDataConsumer struct {
+	abstractConsumer
 	jointDataExchanger
-	queueName string
-	quit      chan int
-	waitGroup *sync.WaitGroup
 }
 
 func CreateJointDataConsumer(queueName string) (*JointDataConsumer, error) {
@@ -454,39 +412,18 @@ func CreateJointDataConsumer(queueName string) (*JointDataConsumer, error) {
 	}
 }
 
-func (consumer *JointDataConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
-	consumer.waitGroup = waitGroup
-	consumer.waitGroup.Add(1)
-}
-
 // Blocks waiting for incoming player records. The given callback will be called for each record.
 func (consumer *JointDataConsumer) Consume(callback func(*JointMatchRecordBatch)) error {
-	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
-		return err
-	} else {
-		// Launch message reader.
-		log.Printf("consuming messages from queue %s\n", consumer.queueName)
-		go func() {
-			for m := range consumerChannel {
-				// Deserialize the batch.
-				if batch, err := DeserializeJointMatchRecords(m.Body); err == nil {
-					// The batch was deserialized correctly. Have it handled by the callback.
-					callback(batch)
-				} else {
-					log.Println("could not deserialize record")
-				}
-			}
-		}()
-		// Wait for an incoming quit message.
-		<-consumer.quit
-		// Send finalization notification.
-		consumer.waitGroup.Done()
-		return nil
-	}
-}
-
-func (consumer *JointDataConsumer) Stop() {
-	consumer.quit <- 0
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if batch, err := DeserializeJointMatchRecords(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(batch)
+		} else {
+			log.Println("could not deserialize batch")
+		}
+	})
+	return nil
 }
 
 //=================================================================================================
@@ -575,10 +512,8 @@ func (publisher *AggregationDataPublisher) publishThroughQueue(serializable Seri
 // Long match data consumer
 //-------------------------------------------------------------------------------------------------
 type LongMatchDataConsumer struct {
+	abstractConsumer
 	aggregationDataExchanger
-	queueName string
-	quit      chan int
-	waitGroup *sync.WaitGroup
 }
 
 func CreateLongMatchDataConsumer() (*LongMatchDataConsumer, error) {
@@ -599,49 +534,26 @@ func CreateLongMatchDataConsumer() (*LongMatchDataConsumer, error) {
 	}
 }
 
-func (consumer *LongMatchDataConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
-	consumer.waitGroup = waitGroup
-	consumer.waitGroup.Add(1)
-}
-
 // Blocks waiting for incoming player records. The given callback will be called for each record.
 func (consumer *LongMatchDataConsumer) Consume(callback func(*SingleTokenRecord)) error {
-	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
-		return err
-	} else {
-		// Launch message reader.
-		log.Printf("consuming messages from queue %s\n", consumer.queueName)
-		go func() {
-			for m := range consumerChannel {
-				// Deserialize the batch.
-				if record, err := DeserializeSingleTokenRecord(m.Body); err == nil {
-					// The batch was deserialized correctly. Have it handled by the callback.
-					callback(record)
-				} else {
-					log.Println("could not deserialize record")
-				}
-			}
-		}()
-		// Wait for an incoming quit message.
-		<-consumer.quit
-		// Send finalization notification.
-		consumer.waitGroup.Done()
-		return nil
-	}
-}
-
-func (consumer *LongMatchDataConsumer) Stop() {
-	consumer.quit <- 0
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if record, err := DeserializeSingleTokenRecord(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(record)
+		} else {
+			log.Println("could not deserialize record")
+		}
+	})
+	return nil
 }
 
 //-------------------------------------------------------------------------------------------------
 // Large rating difference consumer.
 //-------------------------------------------------------------------------------------------------
 type LargeRatingDifferenceMatchDataConsumer struct {
+	abstractConsumer
 	aggregationDataExchanger
-	queueName string
-	quit      chan int
-	waitGroup *sync.WaitGroup
 }
 
 func CreateLargeRatingDifferenceMatchDataConsumer() (*LargeRatingDifferenceMatchDataConsumer, error) {
@@ -662,39 +574,18 @@ func CreateLargeRatingDifferenceMatchDataConsumer() (*LargeRatingDifferenceMatch
 	}
 }
 
-func (consumer *LargeRatingDifferenceMatchDataConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
-	consumer.waitGroup = waitGroup
-	consumer.waitGroup.Add(1)
-}
-
 // Blocks waiting for incoming player records. The given callback will be called for each record.
 func (consumer *LargeRatingDifferenceMatchDataConsumer) Consume(callback func(*SingleTokenRecord)) error {
-	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
-		return err
-	} else {
-		// Launch message reader.
-		log.Printf("consuming messages from queue %s\n", consumer.queueName)
-		go func() {
-			for m := range consumerChannel {
-				// Deserialize the batch.
-				if record, err := DeserializeSingleTokenRecord(m.Body); err == nil {
-					// The batch was deserialized correctly. Have it handled by the callback.
-					callback(record)
-				} else {
-					log.Println("could not deserialize record")
-				}
-			}
-		}()
-		// Wait for an incoming quit message.
-		<-consumer.quit
-		// Send finalization notification.
-		consumer.waitGroup.Done()
-		return nil
-	}
-}
-
-func (consumer *LargeRatingDifferenceMatchDataConsumer) Stop() {
-	consumer.quit <- 0
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if record, err := DeserializeSingleTokenRecord(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(record)
+		} else {
+			log.Println("could not deserialize record")
+		}
+	})
+	return nil
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -702,9 +593,7 @@ func (consumer *LargeRatingDifferenceMatchDataConsumer) Stop() {
 //-------------------------------------------------------------------------------------------------
 type CivilizationInfoRecordConsumer struct {
 	aggregationDataExchanger
-	queueName string
-	quit      chan int
-	waitGroup *sync.WaitGroup
+	abstractConsumer
 }
 
 func CreateIslandsCivilizationUsageDataConsumer() (*CivilizationInfoRecordConsumer, error) {
@@ -736,37 +625,76 @@ func createCivilizationInfoRecordConsumer(queueName string) (*CivilizationInfoRe
 	}
 }
 
-func (consumer *CivilizationInfoRecordConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
+// Blocks waiting for incoming player records. The given callback will be called for each record.
+func (consumer *CivilizationInfoRecordConsumer) Consume(callback func(*CivilizationInfoRecordBatch)) error {
+	consumer.consumeFromQueue(consumer, consumer.queueName, func(message []byte) {
+		// Deserialize the batch.
+		if batch, err := DeserializeCivilizationInfoRecords(message); err == nil {
+			// The batch was deserialized correctly. Have it handled by the callback.
+			callback(batch)
+		} else {
+			log.Println("could not deserialize record")
+		}
+	})
+	return nil
+}
+
+//-------------------------------------------------------------------------------------------------
+// Generic consumer
+//-------------------------------------------------------------------------------------------------
+
+type abstractConsumer struct {
+	queueName string
+	waitGroup *sync.WaitGroup
+	quit      chan int
+}
+
+func (consumer *abstractConsumer) RegisterOnWaitGroup(waitGroup *sync.WaitGroup) {
 	consumer.waitGroup = waitGroup
 	consumer.waitGroup.Add(1)
 }
 
-// Blocks waiting for incoming player records. The given callback will be called for each record.
-func (consumer *CivilizationInfoRecordConsumer) Consume(callback func(*CivilizationInfoRecordBatch)) error {
-	if consumerChannel, err := consumer.consumerChannel(consumer.queueName); err != nil {
+func (consumer *abstractConsumer) consumeFromQueue(
+	connector channelConsumer, queueName string, callback func(message []byte)) error {
+
+	if consumerChannel, err := connector.consumerChannel(queueName); err != nil {
 		return err
 	} else {
-		// Launch message reader.
-		log.Printf("consuming messages from queue %s\n", consumer.queueName)
-		go func() {
-			for m := range consumerChannel {
-				// Deserialize the batch.
-				if batch, err := DeserializeCivilizationInfoRecords(m.Body); err == nil {
-					// The batch was deserialized correctly. Have it handled by the callback.
-					callback(batch)
-				} else {
-					log.Println("could not deserialize record")
-				}
-			}
-		}()
-		// Wait for an incoming quit message.
-		<-consumer.quit
-		// Send finalization notification.
-		consumer.waitGroup.Done()
-		return nil
+		consumer.consumeFromChannel(consumerChannel, func(message []byte) {
+			// Have the message be handled by a callback that knows how to handle it.
+			callback(message)
+		})
 	}
+	return nil
 }
 
-func (consumer *CivilizationInfoRecordConsumer) Stop() {
+func (consumer *abstractConsumer) consumeFromChannel(
+	consumerChannel <-chan amqp.Delivery, callback func(message []byte)) error {
+
+	// Launch reader.
+	log.Printf("consuming messages from queue %s\n", consumer.queueName)
+
+	// Consume from the channel until the stop signal is received.
+	stopping := false
+
+	for !stopping {
+		select {
+		case <-consumer.quit:
+			stopping = true
+		case data := <-consumerChannel:
+			callback(data.Body)
+		}
+
+	}
+
+	// Send finalization notification if registered in a wait group.
+	if consumer.waitGroup != nil {
+		consumer.waitGroup.Done()
+	}
+
+	return nil
+}
+
+func (consumer *abstractConsumer) Stop() {
 	consumer.quit <- 0
 }

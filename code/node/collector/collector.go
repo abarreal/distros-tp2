@@ -23,6 +23,8 @@ type CivilizationPerformanceDataCollector struct {
 	performanceData map[string]([]int)
 	// Define a consumer from which to read victory and defeat results.
 	consumer *middleware.CivilizationInfoRecordConsumer
+	// Define a publisher through which the aggregated statistics should be published.
+	publisher *middleware.AggregationDataPublisher
 }
 
 func RunCivilizationVictoryDataCollector() {
@@ -32,9 +34,18 @@ func RunCivilizationVictoryDataCollector() {
 	// Instantiate the collector.
 	collector := &CivilizationPerformanceDataCollector{}
 	collector.performanceData = make(map[string][]int)
+
+	// Instantiate the publisher.
+	if collector.publisher, err = middleware.CreateAggregationDataPublisher(); err != nil {
+		log.Println("could not create aggregation data publisher")
+		return
+	}
+	defer collector.publisher.Close()
+
 	// Instantiate the consumer itself.
 	if collector.consumer, err = middleware.CreateArenaCivilizationVictoryDataConsumer(); err != nil {
 		log.Println("could not create civilization victory data consumer")
+		return
 	}
 	defer collector.consumer.Close()
 	collector.consumer.RegisterOnWaitGroup(waitGroup)
@@ -75,15 +86,26 @@ func (collector *CivilizationPerformanceDataCollector) handleCivilizationPerform
 
 	// Publish updated statistics. To make better use of the computing resources, publish
 	// the statistics only periodically to avoid repeating the computation on every message.
-	victoryRate := make(map[string]float32)
+	civilizationNames := make([]string, 0)
+	civilizationVictoryRates := make([]float32, 0)
 
 	for cname, data := range collector.performanceData {
 		victories := data[0]
 		total := victories + data[1]
-		victoryRate[cname] = float32(victories) / float32(total)
+		currentRate := float32(victories) / float32(total)
+		// Record the computed data.
+		civilizationNames = append(civilizationNames, cname)
+		civilizationVictoryRates = append(civilizationVictoryRates, currentRate)
 	}
 
-	// TODO: Publish the statistics.
+	// Create an aggregation record and publish statistics.
+	record := middleware.CreateCivilizationFloatRecord(
+		civilizationNames,
+		civilizationVictoryRates)
+
+	if err := collector.publisher.PublishCivilizationVictoryRates(record); err != nil {
+		log.Println("civilization victory rates could not be published")
+	}
 }
 
 //=================================================================================================
@@ -102,6 +124,7 @@ type CivilizationUsageDataCollector struct {
 	// For a more general solution use a map from strings (game map name) to maps like this.
 	usageData map[string]*CivilizationUsageRecord
 	consumer  *middleware.CivilizationInfoRecordConsumer
+	publisher *middleware.AggregationDataPublisher
 }
 
 func RunCivilizationUsageDataCollector() {
@@ -111,9 +134,18 @@ func RunCivilizationUsageDataCollector() {
 	// Instantiate the collector.
 	collector := &CivilizationUsageDataCollector{}
 	collector.usageData = make(map[string]*CivilizationUsageRecord)
+
+	// Instantiate the publisher.
+	if collector.publisher, err = middleware.CreateAggregationDataPublisher(); err != nil {
+		log.Println("could not create aggregation data publisher")
+		return
+	}
+	defer collector.publisher.Close()
+
 	// Instantiate the consumer itself.
 	if collector.consumer, err = middleware.CreateIslandsCivilizationUsageDataConsumer(); err != nil {
 		log.Println("could not create civilization usage data consumer")
+		return
 	}
 	defer collector.consumer.Close()
 	collector.consumer.RegisterOnWaitGroup(waitGroup)
@@ -170,6 +202,20 @@ func (collector *CivilizationUsageDataCollector) handleCivilizationUsageData(
 	}
 	usageRecords = usageRecords[:cap]
 
-	// Publish current top 5.
-	// TODO
+	// Publish current top 5. Construct a record first.
+	civilizationNames := make([]string, 0)
+	civilizationUsageCount := make([]int, 0)
+
+	for _, currentRecord := range usageRecords {
+		civilizationNames = append(civilizationNames, currentRecord.CivilizationName)
+		civilizationUsageCount = append(civilizationUsageCount, currentRecord.UsageCount)
+	}
+
+	record := middleware.CreateCivilizationCounterRecord(
+		civilizationNames,
+		civilizationUsageCount)
+
+	if err := collector.publisher.PublishCivilizationUsageAggregation(record); err != nil {
+		log.Println("civilization usage aggregation could not be published")
+	}
 }

@@ -86,10 +86,10 @@ func Run() {
 	arenaCivVictoryConsumer, err := middleware.CreateArenaCivilizationVictoryDataConsumer()
 
 	if err != nil {
-		log.Println("could not create islands civilization usage data consumer")
+		log.Println("could not create arena civilization victory data consumer")
 	} else {
 		arenaCivVictoryConsumer.RegisterOnWaitGroup(waitGroup)
-		log.Println("launching civilization usage data consumer for map islands")
+		log.Println("launching civilization victory data consumer for map arena")
 		go arenaCivVictoryConsumer.Consume(sink.handleArenaCivilizationVictoryData)
 	}
 

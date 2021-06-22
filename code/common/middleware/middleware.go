@@ -64,11 +64,6 @@ func (connector *Connector) Close() error {
 	return nil
 }
 
-func (connector *Connector) Queue(name string) (*amqp.Queue, bool) {
-	q, found := connector.queues[name]
-	return q, found
-}
-
 func (connector *Connector) declareFanOut(name string) error {
 	return connector.channel.ExchangeDeclare(
 		name,     // name

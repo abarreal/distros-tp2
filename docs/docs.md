@@ -415,3 +415,8 @@ A continuación se listan varias posibilidades de mejora, mencionadas en seccion
 * Convendría adoptar una mejor y más consistente estrategia para nombrar nodos/procesos, visto que ocasionalmente se utilizaron nombres diferentes en distintas secciones y en el código para referirse a la misma unidad funcional.
 * En un despliegue productivo sería adecuado separar el mono-binario en múltiples binarios independientes.
 
+
+
+#### Terminación del sistema
+
+* Podría ser deseable implementar un mecanismo que permita emitir una señal de finalización cuando todo el dataset haya sido ingresado al sistema. Para evitar condiciones de carrera, la señal debería propagarse comenzando desde el cliente hacia adentro y por el mismo canal por el que circulan los mensajes normales (análogo a un EOF), y un nodo que la recibe debería propagarla solo habiendo confirmado que no le quedan registros pendientes en memoria para procesar. Un nodo que escucha por múltiples canales debería esperar a recibir la señal de finalización por todos ellos antes de continuar. En los casos en los que hay múltiples procesos escuchando de una cola de trabajo, el proceso que recibe el EOF debe enviárselo a sus pares, posiblemente a través de un fanout. Luego, cuando todos los trabajadores confirman haber recibido la señal (mediante un mecanismo de coordinación), uno de ellos procede a propagarla hacia abajo.

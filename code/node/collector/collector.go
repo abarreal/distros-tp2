@@ -193,7 +193,7 @@ func (collector *CivilizationUsageDataCollector) handleCivilizationUsageData(
 
 	// Sort by usage count.
 	sort.Slice(usageRecords, func(i, j int) bool {
-		return usageRecords[i].UsageCount < usageRecords[j].UsageCount
+		return usageRecords[i].UsageCount > usageRecords[j].UsageCount
 	})
 	// Keep only the first 5.
 	cap := len(usageRecords)

@@ -8,6 +8,7 @@
 > * Se modificó el código del cliente para reducir la repetición y para utilizar el quitChannel que antes no se usaba.
 > * Se eliminó el archivo `process.go` que no era utilizado. Se eliminó también el método `Queue` del tipo `Connector` que no era utilizado y exponía detalles internos sobre la implementación del middleware.
 > * Se modificó la documentación para que sea acorde al nuevo sistema y para reflejar los cambios solicitados.
+> * Se corrigió un bug en el proceso join que impedía que se identificaran partidas que podían joinearse. Con el cambio se obtuvieron resultados acordes a los de la demostración de Kaggle.
 
 
 
@@ -299,6 +300,100 @@ El cliente implementado es uno también demostrativo, que lee simplemente los ar
 2. El filtro o uno de los filtros Top 5 Filter recibe el registro y determina si cumple con las condiciones para ser de interés al ya mencionado flujo. Determinando que es el caso, construye un registro de tipo CivilizationInfoRecord por cada jugador pro en la partida, indicando la civilización que usó, y los junta en un batch. El batch es enviado a través de una cola.
 3. El nodo Usage Data Collector guarda contadores en memoria para cada civilización, inicializados en forma lazy, que indican la cantidad de veces que cada civilización fue usada por pro players en partidas por equipo en el mapa islands. En base a los registros tipo CivilizationInfoRecord que recibe a través de la cola asociada al mencionado flujo, aumenta en uno (para cada registro) el contador correspondiente a la civilización indicada en el registro. Luego el nodo determina el top 5 de las civilizaciones más usadas y emite el resultado por una cola. En el sistema demostrativo esta evaluación se realiza ante cada mensaje, aunque nada impide ejecutarla en forma periódica para ahorrar en recursos de cómputo. Adicionalmente, como se mencionó en la vista física, de ser necesario escalar en esta instancia es posible separar este nodo en dos etapas: una primera etapa de agregación parcial con múltiples nodos y una segunda etapa de agregación total con determinación del top 5, análogo a lo que se sugiere para el Performance Data Collector.
 4. El nodo Sink recibe los resultados del top 5 reportados por el Usage Data Collector y guarda el último recibido, para mostrarlo periódicamente.  Si fuera necesario escalar en esta instancia, se puede tener un proceso Sink independiente para cada flujo y realizar la agregación final a demanda solo cuando sea necesario, aprovechando que cada flujo produce resultados independientes de los producidos por los demás.
+
+
+
+## Resultados de la ejecución
+
+A continuación se muestran los logs de resultados producidos por una ejecución. Se observa que todas las partidas llegan a juntarse con sus jugadores, y se obtienen resultados similares a los que se muestran en la demostración de Kaggle. En el único flujo en el que se observan diferencias es en el flujo 2 (partidas 1v1 donde el ganador haya tenido un rating 30% menor al del perdedor y el rating del ganador sea superior a 1000), aunque puede deberse a que el criterio del rating 30% menor podría haber sido implementado en forma ligeramente distinta, llevando a discrepancias.
+
+```
+join | 2021/06/24 04:59:17 received matches: 3153767
+join | 2021/06/24 04:59:17 received players: 9732500
+join | 2021/06/24 04:59:17 joined records: 3153767
+sink | 2021/06/24 04:59:17 [ ] Displaying periodic statistics report
+sink | 2021/06/24 04:59:17 [ ]
+sink | 2021/06/24 04:59:17 [o] 159 long matches found so far
+sink | 2021/06/24 04:59:17 [-] Long match #1: FBRdtKo3LN4jKu7r
+sink | 2021/06/24 04:59:17 [-] Long match #2: 5wxASJNkADnecj2w
+sink | 2021/06/24 04:59:17 [-] Long match #3: e62b7d5e278f56e6
+sink | 2021/06/24 04:59:17 [-] Long match #4: 654b991290204a3f
+sink | 2021/06/24 04:59:17 [-] Long match #5: CvdfeZ89cX7T7e9p
+sink | 2021/06/24 04:59:17 [-] Long match #6: 77e0cbd6de797a1e
+sink | 2021/06/24 04:59:17 [-] Long match #7: Zn9yKyEVd5kEqiKa
+sink | 2021/06/24 04:59:17 [-] Long match #8: ed1071e9ac5f2d8a
+sink | 2021/06/24 04:59:17 [-] Long match #9: 96af7d7b23fce73c
+sink | 2021/06/24 04:59:17 [-] Long match #10: 8d4c382ff8c9b0db
+sink | 2021/06/24 04:59:17 [-] Long match #11: PmJy1aWleLG72CVK
+sink | 2021/06/24 04:59:17 [-] Long match #12: vyasi3SCSDUR0QuW
+sink | 2021/06/24 04:59:17 [-] Long match #13: FY68UB5utpAs9erk
+sink | 2021/06/24 04:59:17 [-] Long match #14: b6dc69b4343d8add
+sink | 2021/06/24 04:59:17 [-] Long match #15: 540a3ddaaf806bb4
+sink | 2021/06/24 04:59:17 [-] Long match #16: VKC70ytXzIumBCBu
+sink | 2021/06/24 04:59:17 [ ] 143 not displayed
+sink | 2021/06/24 04:59:17 [ ]
+sink | 2021/06/24 04:59:17 [o] 13 large rating difference matches found so far
+sink | 2021/06/24 04:59:17 [-] large rating difference match #1: ZhLg3fe2SAKUne41
+sink | 2021/06/24 04:59:17 [-] large rating difference match #2: 17bc2296148b0837
+sink | 2021/06/24 04:59:17 [-] large rating difference match #3: e2ff0d49f2a8573e
+sink | 2021/06/24 04:59:17 [-] large rating difference match #4: bS0T1c3qIuoBziPH
+sink | 2021/06/24 04:59:17 [-] large rating difference match #5: b6befe5a862d47ca
+sink | 2021/06/24 04:59:17 [-] large rating difference match #6: yaXUQSygwmiXVdSw
+sink | 2021/06/24 04:59:17 [-] large rating difference match #7: Y89e2W87V28v7kIe
+sink | 2021/06/24 04:59:17 [-] large rating difference match #8: F6rVJ5vgwQ3q2fxR
+sink | 2021/06/24 04:59:17 [-] large rating difference match #9: Hqx7dKH35Ds7CJS7
+sink | 2021/06/24 04:59:17 [-] large rating difference match #10: 9c0b37f01c78c905
+sink | 2021/06/24 04:59:17 [-] large rating difference match #11: Oj2DAxSO2mj4fsgn
+sink | 2021/06/24 04:59:17 [-] large rating difference match #12: Ni6jnrZVAeO2B3un
+sink | 2021/06/24 04:59:17 [-] large rating difference match #13: 8a93d8306c758c0e
+sink | 2021/06/24 04:59:17 [ ]
+sink | 2021/06/24 04:59:17 [o] Victory rate by civilization in non-mirror 1v1 matches, in arena:
+sink | 2021/06/24 04:59:17 [-] Spanish : 0.51
+sink | 2021/06/24 04:59:17 [-] Tatars : 0.42
+sink | 2021/06/24 04:59:17 [-] Koreans : 0.45
+sink | 2021/06/24 04:59:17 [-] Chinese : 0.47
+sink | 2021/06/24 04:59:17 [-] Mongols : 0.48
+sink | 2021/06/24 04:59:17 [-] Turks : 0.55
+sink | 2021/06/24 04:59:17 [-] Byzantines : 0.47
+sink | 2021/06/24 04:59:17 [-] Ethiopians : 0.48
+sink | 2021/06/24 04:59:17 [-] Huns : 0.47
+sink | 2021/06/24 04:59:17 [-] Bulgarians : 0.50
+sink | 2021/06/24 04:59:17 [-] Cumans : 0.49
+sink | 2021/06/24 04:59:17 [-] Magyars : 0.42
+sink | 2021/06/24 04:59:17 [-] Persians : 0.45
+sink | 2021/06/24 04:59:17 [-] Malians : 0.47
+sink | 2021/06/24 04:59:17 [-] Berbers : 0.43
+sink | 2021/06/24 04:59:17 [-] Malay : 0.48
+sink | 2021/06/24 04:59:17 [-] Franks : 0.52
+sink | 2021/06/24 04:59:17 [-] Lithuanians : 0.49
+sink | 2021/06/24 04:59:17 [-] Vikings : 0.51
+sink | 2021/06/24 04:59:17 [-] Incas : 0.53
+sink | 2021/06/24 04:59:17 [-] Japanese : 0.46
+sink | 2021/06/24 04:59:17 [-] Teutons : 0.53
+sink | 2021/06/24 04:59:17 [-] Italians : 0.48
+sink | 2021/06/24 04:59:17 [-] Burmese : 0.55
+sink | 2021/06/24 04:59:17 [-] Goths : 0.54
+sink | 2021/06/24 04:59:17 [-] Indians : 0.46
+sink | 2021/06/24 04:59:17 [-] Vietnamese : 0.47
+sink | 2021/06/24 04:59:17 [-] Khmer : 0.53
+sink | 2021/06/24 04:59:17 [-] Saracens : 0.43
+sink | 2021/06/24 04:59:17 [-] Mayans : 0.48
+sink | 2021/06/24 04:59:17 [-] Celts : 0.53
+sink | 2021/06/24 04:59:17 [-] Britons : 0.49
+sink | 2021/06/24 04:59:17 [-] Portuguese : 0.46
+sink | 2021/06/24 04:59:17 [-] Aztecs : 0.53
+sink | 2021/06/24 04:59:17 [-] Slavs : 0.52
+sink | 2021/06/24 04:59:17 [ ]
+sink | 2021/06/24 04:59:17 [o] top 5 most used civilizations by pro players in team matches, in islands:
+sink | 2021/06/24 04:59:17 [-] #1 : Vikings, used 629 times
+sink | 2021/06/24 04:59:17 [-] #2 : Italians, used 415 times
+sink | 2021/06/24 04:59:17 [-] #3 : Portuguese, used 350 times
+sink | 2021/06/24 04:59:17 [-] #4 : Japanese, used 143 times
+sink | 2021/06/24 04:59:17 [-] #5 : Malay, used 143 times
+sink | 2021/06/24 04:59:17 [ ]
+```
+
+
 
 
 

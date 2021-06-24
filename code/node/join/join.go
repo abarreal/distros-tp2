@@ -193,21 +193,7 @@ func monitor(join *Join) {
 		join.datalock.Lock()
 		log.Printf("received matches: %d\n", join.receivedMatchesCount)
 		log.Printf("received players: %d\n", join.receivedPlayersCount)
-		log.Printf("joined records: %d\n", join.joinedMatchesCount)
-
-		// Grab an few matches and check players.
-		count := 0
-		for token, match := range join.unjoinedMatches {
-			players := join.unjoinedPlayers[token]
-			log.Println(match.Token)
-			log.Println(match.NumPlayers)
-			log.Println(len(players))
-			count++
-			if count == 3 {
-				break
-			}
-		}
-
+		log.Printf("joined matches: %d\n", join.joinedMatchesCount)
 		join.datalock.Unlock()
 
 		timeout = time.After(time.Duration(15) * time.Second)

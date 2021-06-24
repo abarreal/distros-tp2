@@ -263,7 +263,7 @@ func (record *JointMatchRecord) Loser1v1() *JointPlayerRecord {
 		return nil
 	} else {
 		winnerIdx, winner := record.Winner()
-		if winner != nil {
+		if winner != nil && winnerIdx < 2 {
 			return record.Players[1-winnerIdx]
 		} else {
 			return nil

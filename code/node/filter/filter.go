@@ -155,7 +155,7 @@ func (filter *LargeRatingDifferenceFilterInstance) largeRatingDifferenceCallback
 		// Determine whether the rating of the winner is at least 30% less than that
 		// of the winner.
 		loser := record.Loser1v1()
-		if !(winner.Rating < 0.7*loser.Rating) {
+		if loser == nil || !(winner.Rating < 0.7*loser.Rating) {
 			continue
 		}
 		// Publish record through publisher.

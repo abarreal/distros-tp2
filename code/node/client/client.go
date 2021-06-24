@@ -27,7 +27,7 @@ const PlayerDataBatchSizeDefault int = 512
 func Run() {
 
 	// Sleep to have the system up before launching the client.
-	time.Sleep(time.Duration(30) * time.Second)
+	time.Sleep(time.Duration(60) * time.Second)
 
 	waitGroup := &sync.WaitGroup{}
 

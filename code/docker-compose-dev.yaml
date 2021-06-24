@@ -35,29 +35,29 @@ services:
     networks:
       - testing_net
 
-  long_match_filter_1:
-    container_name: long_match_filter_1
-    image: tp2node:latest
-    entrypoint: /node lmfilter
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - InstanceId=1
-    networks:
-      - testing_net
+#  long_match_filter_1:
+#    container_name: long_match_filter_1
+#    image: tp2node:latest
+#    entrypoint: /node lmfilter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=1
+#    networks:
+#      - testing_net
 
-  long_match_filter_2:
-    container_name: long_match_filter_2
-    image: tp2node:latest
-    entrypoint: /node lmfilter
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - InstanceId=2
-    networks:
-      - testing_net
+#  long_match_filter_2:
+#    container_name: long_match_filter_2
+#    image: tp2node:latest
+#    entrypoint: /node lmfilter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=2
+#    networks:
+#      - testing_net
 
   large_rating_difference_filter_1:
     container_name: large_rating_difference_filter_1
@@ -71,51 +71,51 @@ services:
     networks:
       - testing_net
 
-  top5_most_used_filter_1:
-    container_name: top5_most_used_filter_1
-    image: tp2node:latest
-    entrypoint: /node top5filter
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - InstanceId=1
-    networks:
-      - testing_net
+#  top5_most_used_filter_1:
+#    container_name: top5_most_used_filter_1
+#    image: tp2node:latest
+#    entrypoint: /node top5filter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=1
+#    networks:
+#      - testing_net
 
-  civ_performance_filter_1:
-    container_name: civ_performance_filter_1
-    image: tp2node:latest
-    entrypoint: /node civperformancefilter
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-      - InstanceId=1
-    networks:
-      - testing_net
+#  civ_performance_filter_1:
+#    container_name: civ_performance_filter_1
+#    image: tp2node:latest
+#    entrypoint: /node civperformancefilter
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#      - InstanceId=1
+#    networks:
+#      - testing_net
 
-  victory_data_collector:
-    container_name: victory_data_collector
-    image: tp2node:latest
-    entrypoint: /node victorydatacollector
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-    networks:
-      - testing_net
+#  victory_data_collector:
+#    container_name: victory_data_collector
+#    image: tp2node:latest
+#    entrypoint: /node victorydatacollector
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#    networks:
+#      - testing_net
     
-  usage_data_collector:
-    container_name: usage_data_collector
-    image: tp2node:latest
-    entrypoint: /node usagedatacollector
-    depends_on:
-      - rabbit
-    environment:
-      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
-    networks:
-      - testing_net
+#  usage_data_collector:
+#    container_name: usage_data_collector
+#    image: tp2node:latest
+#    entrypoint: /node usagedatacollector
+#    depends_on:
+#      - rabbit
+#    environment:
+#      - RMQConnectionString=amqp://guest:guest@rabbit:5672/
+#    networks:
+#      - testing_net
 
   sink:
     container_name: sink

@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"tp2.aba.distros.fi.uba.ar/common/config"
 	"tp2.aba.distros.fi.uba.ar/common/middleware"
@@ -26,6 +27,10 @@ type Join struct {
 	// Use a lock for mutual exclusion between the thread reading player data
 	// and the one reading match data.
 	datalock *sync.Mutex
+	// Counters to keep track of what is going on.
+	receivedMatchesCount int
+	receivedPlayersCount int
+	joinedMatchesCount   int
 }
 
 func Run() {
@@ -39,6 +44,9 @@ func Run() {
 	join.unjoinedMatches = make(map[string]*middleware.MatchRecord)
 	join.unjoinedPlayers = make(map[string]([]*middleware.PlayerRecord))
 	join.publisher, err = middleware.CreateJointDataPublisher()
+	join.receivedMatchesCount = 0
+	join.receivedPlayersCount = 0
+	join.joinedMatchesCount = 0
 
 	if err != nil {
 		log.Println("could not create joint data publisher")
@@ -73,6 +81,9 @@ func Run() {
 	// Launch.
 	go mdConsumer.Consume(join.handleMatchDataBatch)
 	go pdConsumer.Consume(join.handlePlayerDataBatch)
+
+	// Launch monitor.
+	go monitor(join)
 
 	// Wait for a quit signal.
 	sigchannel := make(chan os.Signal, 1)
@@ -121,10 +132,12 @@ func (join *Join) savePlayer(record *middleware.PlayerRecord) {
 
 	players = append(players, record)
 	join.unjoinedPlayers[record.Match] = players
+	join.receivedPlayersCount++
 }
 
 func (join *Join) saveMatch(record *middleware.MatchRecord) {
 	join.unjoinedMatches[record.Token] = record
+	join.receivedMatchesCount++
 }
 
 func (join *Join) canJoinMatch(record *middleware.MatchRecord) bool {
@@ -145,7 +158,7 @@ func (join *Join) canJoinPlayer(record *middleware.PlayerRecord) bool {
 		// duplicate records.
 		requiredPlayerCount := matchRecord.NumPlayers
 
-		if players, found := join.unjoinedPlayers[record.Token]; found {
+		if players, found := join.unjoinedPlayers[matchRecord.Token]; found {
 			return requiredPlayerCount == len(players)
 		} else {
 			return false
@@ -164,7 +177,39 @@ func (join *Join) doJoin(matchToken string) {
 	joint := middleware.Join(match, players)
 	batch := middleware.CreateJointMatchRecordBatch([]*middleware.JointMatchRecord{joint})
 	join.publisher.PublishJointData(batch)
+	join.joinedMatchesCount++
 	// Remove data from cache.
 	delete(join.unjoinedMatches, matchToken)
 	delete(join.unjoinedPlayers, matchToken)
+}
+
+func monitor(join *Join) {
+	timeout := time.After(time.Duration(15) * time.Second)
+
+	for {
+		<-timeout
+
+		// Print the amount of unjoined records.
+		join.datalock.Lock()
+		log.Printf("received matches: %d\n", join.receivedMatchesCount)
+		log.Printf("received players: %d\n", join.receivedPlayersCount)
+		log.Printf("joined records: %d\n", join.joinedMatchesCount)
+
+		// Grab an few matches and check players.
+		count := 0
+		for token, match := range join.unjoinedMatches {
+			players := join.unjoinedPlayers[token]
+			log.Println(match.Token)
+			log.Println(match.NumPlayers)
+			log.Println(len(players))
+			count++
+			if count == 3 {
+				break
+			}
+		}
+
+		join.datalock.Unlock()
+
+		timeout = time.After(time.Duration(15) * time.Second)
+	}
 }
